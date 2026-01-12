@@ -8,25 +8,6 @@ import openpyxl
 # Configuração da página para ocupar mais espaço na tela
 st.set_page_config(page_title="Gestor de Convênio", layout="wide")
 
-# CSS para ocultar elementos indesejados
-hide_streamlit_style = """
-<style>
-    /* Ocultar o rodapé padrão "Made with Streamlit" */
-    footer {visibility: hidden;}
-
-    /* Ocultar o Menu Hambúrguer no canto superior direito (opcional, remova se quiser manter) */
-    #MainMenu {visibility: hidden;}
-
-    /* Ocultar especificamente o botão com sua foto/perfil no rodapé (Viewer Badge) */
-    div[class^='viewerBadge'] {display: none;}
-
-    /* Caso a classe mude, esta é uma abordagem mais agressiva para o container do rodapé da cloud */
-    .stApp > header {visibility: hidden;}
-</style>
-"""
-
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-
 # --- CONEXÃO COM BANCO DE DADOS (SQLITE) ---
 def get_database_connection():
     # Cria (ou conecta) a um arquivo local chamado 'dados_convenios.db'
@@ -165,9 +146,10 @@ def limpar_tudo():
     st.session_state['f_data_lanc'] = None
     st.session_state['f_data_corte'] = None
 
-
 # --- BARRA LATERAL ---
 with st.sidebar:
+    # --- BOTÃO DE TEMA ---
+
     st.header("⚙️ Administração")
     uploaded_file = st.file_uploader("Subir nova planilha", type=['xlsx', 'xls'])
 
