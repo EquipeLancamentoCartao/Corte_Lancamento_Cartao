@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 import sqlite3
 import io
+import openpyxl
 
 # Configuração da página para ocupar mais espaço na tela
 st.set_page_config(page_title="Gestor de Convênio", layout="wide")
@@ -155,6 +156,16 @@ def to_excel(df):
 
 st.title("📂 Sistema Compartilhado de Convênios")
 
+# --- FUNÇÃO PARA LIMPAR (Coloque isso antes do sidebar ou no topo do script) ---
+def limpar_tudo():
+    st.session_state['f_convenio'] = []
+    st.session_state['f_sistema'] = []
+    st.session_state['f_resp'] = []
+    st.session_state['f_validacao'] = []
+    st.session_state['f_data_lanc'] = None
+    st.session_state['f_data_corte'] = None
+
+
 # --- BARRA LATERAL ---
 with st.sidebar:
     st.header("⚙️ Administração")
@@ -174,22 +185,62 @@ with st.sidebar:
     # --- AQUI ENTRAM OS SEUS FILTROS ---
     st.header("🔍 Filtros de Visualização")
 
+    # Dica de Performance: Carregue os dados uma vez só numa variável
+    df_banco = carregar_dados_do_banco()
+
+    # --- TRAVA DE SEGURANÇA ---
+    # Se o banco estiver vazio, interrompemos a construção dos filtros para não dar erro
+    if df_banco.empty:
+        st.info("ℹ️ Nenhuma base de dados carregada no momento.")
+        # O st.stop() faz o Streamlit parar de ler o código daqui pra baixo (na sidebar)
+        # Isso evita que ele tente ler colunas que não existem.
+        st.stop()
+
+        # --- SE PASSOU DA TRAVA, SEGUE O BAILE ---
+
+    convenios_filtro = st.multiselect(
+        "Filtrar Convênios:",
+        options=df_banco['Convênio'].unique(),
+        key='f_convenio'
+    )
+
+    sistema_filtro = st.multiselect(
+        "Filtra Sistemas:",
+        options=df_banco['Sistema'].unique(),
+        key='f_sistema'
+    )
+
+    responsavel_filtro = st.multiselect(
+        "Responsável:",
+        options=df_banco['Responsavel'].unique(),
+        key='f_resp'
+    )
+
+    validacao_filtro = st.multiselect(
+        "Validador:",
+        options=df_banco['Validação'].unique(),
+        key='f_validacao'
+    )
+
     # 2. Seus filtros de Data
     data_filtro_lancamento = st.date_input(
         "Data de Lançamento exata:",
         value=None,
-        format="DD/MM/YYYY"
+        format="DD/MM/YYYY",
+        key='f_data_lanc'
     )
 
     data_filtro_corte = st.date_input(
         "Data de Corte exata:",
         value=None,
-        format="DD/MM/YYYY"
+        format="DD/MM/YYYY",
+        key='f_data_corte'
     )
 
-    if st.button("Limpar Filtros"):
-        st.rerun()
+    # O botão chama a função ANTES de rodar o app de novo
+    st.button("Limpar Filtros", on_click=limpar_tudo)
 
+    st.divider()
     if st.button("🗑️ Limpar todo o Banco de Dados"):
         conn = get_database_connection()
         cursor = conn.cursor()
@@ -206,6 +257,8 @@ st.subheader("Visualização da Base de Dados")
 df_visualizacao = carregar_dados_do_banco()
 
 if not df_visualizacao.empty:
+
+    # --- SEUS FILTROS DE DATA AQUI ---
 
     # --- NOVIDADE: TABELA DE "HOJE" ---
     # Pegamos a data atual do sistema
@@ -245,10 +298,28 @@ if not df_visualizacao.empty:
 
     st.divider()  # Uma linha para separar o resumo da tabela completa
 
+
+
     # --- TABELA COMPLETA E FILTROS (CÓDIGO ANTERIOR) ---
     st.subheader("Base Geral Completa")
 
     # 2. Aplica a Lógica dos Filtros
+
+    # Filtro de convênios
+    if convenios_filtro:
+        df_visualizacao = df_visualizacao[df_visualizacao['Convênio'].isin(convenios_filtro)]
+
+    # Filtro de sistemas
+    if sistema_filtro:
+        df_visualizacao = df_visualizacao[df_visualizacao['Sistema'].isin(sistema_filtro)]
+
+    # Filtro dos responsáveis
+    if responsavel_filtro:
+        df_visualizacao = df_visualizacao[df_visualizacao['Responsavel'].isin(responsavel_filtro)]
+
+    # Filtro dos validadores
+    if validacao_filtro:
+        df_visualizacao = df_visualizacao[df_visualizacao['Validação'].isin(validacao_filtro)]
 
     # Filtro de Data de Lançamento
     if data_filtro_lancamento:
