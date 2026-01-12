@@ -80,7 +80,11 @@ def tratar_planilha(uploaded_file):
         # --- MUDANÇA AQUI ---
         # Agora verificamos DUAS coisas:
         # 1. Se tem a palavra chave
-        tem_palavra_chave = any(p in valor_coluna_conv for p in palavras_chave)
+        # Só verifica se for texto, senão considera Falso
+        if isinstance(valor_coluna_conv, str):
+            tem_palavra_chave = any(p in valor_coluna_conv for p in palavras_chave)
+        else:
+            tem_palavra_chave = False
 
         # 2. Se as outras colunas importantes estão vazias (NaN ou NaT ou string vazia)
         # Vamos checar a coluna "Validador" e "Data de corte" como exemplo.
