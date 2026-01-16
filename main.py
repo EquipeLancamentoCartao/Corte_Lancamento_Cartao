@@ -46,7 +46,7 @@ def carregar_dados_do_banco():
         df = pd.read_sql('SELECT * FROM tabela_corte', conn)
 
         # Converte as colunas de data (ajuste os nomes conforme suas colunas reais)
-        cols_data = ['Data de Lancamento', 'Data de Corte']  # Exemplo de nomes sem espaço, padrão SQL
+        cols_data = ['Data_Lancamento', 'Data_Corte']  # Exemplo de nomes sem espaço, padrão SQL
 
         for col in cols_data:
             if col in df.columns:
@@ -54,37 +54,55 @@ def carregar_dados_do_banco():
 
         return df
 
+
     except Exception as e:
-        st.error(f"Erro ao carregar dados: {e}")  # Mostra o erro na tela para te ajudar a debugar
-        return pd.DataFrame()
+
+        # Se o erro for "Table doesn't exist" (código 1146), a gente finge que não viu
+
+        # e retorna uma tabela vazia, pois é apenas o primeiro acesso.
+
+        if "1146" in str(e):
+
+            return pd.DataFrame()
+
+        else:
+
+            # Se for outro erro (senha, conexão), aí sim mostramos na tela
+
+            st.error(f"Erro ao carregar dados: {e}")
+
+            return pd.DataFrame()
 
 
 def salvar_no_banco(df, nome_tabela='tabela_corte'):
-    """
-    df: O DataFrame tratado da planilha
-    nome_tabela: Nome da tabela no banco MySQL
-    modo: 'append' (adiciona ao final) ou 'replace' (apaga tudo e põe a nova)
-    """
-    # 1. Monta a string de conexão (connection string)
-    # Formato: mysql+mysqlconnector://user:password@host:port/database
-    host = st.secrets["mysql"]["host"],
-    user = st.secrets["mysql"]["user"],
-    password = st.secrets["mysql"]["password"],
-    database = st.secrets["mysql"]["database"],
-    port = st.secrets["mysql"]["port"]
-
-    conexao_str = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{database}"
-
-    # 2. Cria a Engine do SQLAlchemy
-    engine = create_engine(conexao_str)
+    st.write("🕵️‍♂️ Iniciando processo de salvamento...")
 
     try:
-        # Modo 'replace': Destrói a antiga e cria uma nova igualzinha ao DataFrame
-        # index=False: Não cria coluna de índice numérico do Pandas
+        # 1. Conferindo as credenciais (sem mostrar a senha)
+        user = st.secrets["mysql"]["user"]
+        host = st.secrets["mysql"]["host"]
+        port = st.secrets["mysql"]["port"]
+        database = st.secrets["mysql"]["database"]
+
+        st.write(f"📡 Tentando conectar em: {host} (Banco: {database})")
+
+        # 2. Montando a string
+        password = st.secrets["mysql"]["password"]
+        conexao_str = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{database}"
+
+        # 3. Criando Engine
+        engine = create_engine(conexao_str)
+        st.write("⚙️ Engine criada. Tentando enviar dados...")
+
+        # 4. Enviando
         df.to_sql(name=nome_tabela, con=engine, if_exists='replace', index=False)
+        st.write("✅ Comando to_sql finalizado!")
         return True
+
     except Exception as e:
-        st.error(f"Erro: {e}")
+        st.error(f"❌ ERRO CRÍTICO: {e}")
+        # Isso imprime o erro completo no terminal/console do navegador para detalhes
+        print(e)
         return False
 
 
