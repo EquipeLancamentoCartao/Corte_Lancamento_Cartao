@@ -46,7 +46,7 @@ def carregar_dados_do_banco():
         df = pd.read_sql('SELECT * FROM tabela_corte', conn)
 
         # Converte as colunas de data (ajuste os nomes conforme suas colunas reais)
-        cols_data = ['Data_Lancamento', 'Data_Corte']  # Exemplo de nomes sem espaço, padrão SQL
+        cols_data = ['Data de Lancamento', 'Data de Corte']  # Exemplo de nomes sem espaço, padrão SQL
 
         for col in cols_data:
             if col in df.columns:
@@ -290,7 +290,7 @@ with st.sidebar:
     if st.button("🗑️ Limpar todo o Banco de Dados"):
         conn = init_connection()
         cursor = conn.cursor()
-        cursor.execute("DROP TABLE IF EXISTS lancamentos")
+        cursor.execute("DROP TABLE IF EXISTS tabela_corte")
         conn.commit()
         conn.close()
         st.warning("Banco de dados limpo!")
