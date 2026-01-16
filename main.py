@@ -14,11 +14,11 @@ st.set_page_config(page_title="Datas de Corte e Lançamento", layout="wide")
 def init_connection():
     # Pega os dados do secrets (tanto local quanto na nuvem)
     return mysql.connector.connect(
-        host=st.secrets["mysql"]["gateway01.eu-central-1.prod.aws.tidbcloud.com"],
-        user=st.secrets["mysql"]["23xSJ58SMcsHFmr.root"],
-        password=st.secrets["mysql"]["4dR5wL52mQNtszP9"],
-        database=st.secrets["mysql"]["test"],
-        port=st.secrets["mysql"]["4000"]
+        host=st.secrets["mysql"]["host"],
+        user=st.secrets["mysql"]["user"],
+        password=st.secrets["mysql"]["password"],
+        database=st.secrets["mysql"]["database"],
+        port=st.secrets["mysql"]["port"]
     )
 
 def run_query(query, params=None):
@@ -67,11 +67,11 @@ def salvar_no_banco(df, nome_tabela='tabela_corte', modo='append'):
     """
     # 1. Monta a string de conexão (connection string)
     # Formato: mysql+mysqlconnector://user:password@host:port/database
-    user = st.secrets["mysql"]["23xSJ58SMcsHFmr.root"]
-    password = st.secrets["mysql"]["4dR5wL52mQNtszP9"]
-    host = st.secrets["mysql"]["gateway01.eu-central-1.prod.aws.tidbcloud.com"]
-    port = st.secrets["mysql"]["4000"]
-    database = st.secrets["mysql"]["test"]
+    host = st.secrets["mysql"]["host"],
+    user = st.secrets["mysql"]["user"],
+    password = st.secrets["mysql"]["password"],
+    database = st.secrets["mysql"]["database"],
+    port = st.secrets["mysql"]["port"]
 
     conexao_str = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{database}"
 
