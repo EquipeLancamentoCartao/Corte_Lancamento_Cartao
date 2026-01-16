@@ -204,7 +204,7 @@ with st.sidebar:
             with st.spinner("Salvando no banco..."):
                 df_tratado = tratar_planilha(uploaded_file)
                 modo_sql = 'replace'
-                salvar_no_banco(df_tratado, modo=modo_sql)
+                salvar_no_banco(df_tratado)
             st.success("Salvo!")
             st.rerun()
 
