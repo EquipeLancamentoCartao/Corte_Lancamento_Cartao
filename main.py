@@ -59,7 +59,7 @@ def carregar_dados_do_banco():
         return pd.DataFrame()
 
 
-def salvar_no_banco(df, nome_tabela='tabela_corte', modo='append'):
+def salvar_no_banco(df, nome_tabela='tabela_corte'):
     """
     df: O DataFrame tratado da planilha
     nome_tabela: Nome da tabela no banco MySQL
