@@ -2,48 +2,90 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import sqlite3
+from sqlalchemy import create_engine
 import io
+import mysql.connector
 import openpyxl
 
 # Configuração da página para ocupar mais espaço na tela
-st.set_page_config(page_title="Gestor de Convênio", layout="wide")
+st.set_page_config(page_title="Datas de Corte e Lançamento", layout="wide")
 
-# --- CONEXÃO COM BANCO DE DADOS (SQLITE) ---
-def get_database_connection():
-    # Cria (ou conecta) a um arquivo local chamado 'dados_convenios.db'
-    conn = sqlite3.connect('dados_convenios.db', check_same_thread=False)
-    return conn
+@st.cache_resource(ttl=600)
+def init_connection():
+    # Pega os dados do secrets (tanto local quanto na nuvem)
+    return mysql.connector.connect(
+        host=st.secrets["mysql"]["gateway01.eu-central-1.prod.aws.tidbcloud.com"],
+        user=st.secrets["mysql"]["23xSJ58SMcsHFmr.root"],
+        password=st.secrets["mysql"]["4dR5wL52mQNtszP9"],
+        database=st.secrets["mysql"]["test"],
+        port=st.secrets["mysql"]["4000"]
+    )
+
+def run_query(query, params=None):
+    conn = init_connection()
+    # O cursor(dictionary=True) é útil para acessar colunas pelo nome
+    with conn.cursor(dictionary=True) as cursor:
+        cursor.execute(query, params)
+        if query.strip().upper().startswith("SELECT"):
+            return cursor.fetchall()
+        else:
+            conn.commit()
+            return None
 
 
 def carregar_dados_do_banco():
     """Lê os dados salvos no banco para mostrar na tela"""
-    conn = get_database_connection()
-    try:
-        # Lê a tabela 'lancamentos'. Se não existir (banco novo), retorna DataFrame vazio.
-        df = pd.read_sql('SELECT * FROM lancamentos', conn)
 
-        # Converte as colunas de data que vêm do SQL como texto de volta para datetime
-        cols_data = ['Data de corte', 'Data de lançamento']
+    # 1. Usa a nova função de conexão que pega os dados do secrets.toml
+    # (Certifique-se de usar o mesmo nome que definiu antes: init_connection ou criar_conexao)
+    conn = init_connection()
+
+    try:
+        # Lê a tabela.
+        # IMPORTANTE: Confirme se o nome da tabela no TiDB é 'lancamentos' ou 'tabela_corte'
+        df = pd.read_sql('SELECT * FROM tabela_corte', conn)
+
+        # Converte as colunas de data (ajuste os nomes conforme suas colunas reais)
+        cols_data = ['Data de Lancamento', 'Data de Corte']  # Exemplo de nomes sem espaço, padrão SQL
+
         for col in cols_data:
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col], errors='coerce')
+
         return df
-    except:
-        return pd.DataFrame()  # Retorna vazio se der erro ou tabela não existir
-    finally:
-        conn.close()
+
+    except Exception as e:
+        st.error(f"Erro ao carregar dados: {e}")  # Mostra o erro na tela para te ajudar a debugar
+        return pd.DataFrame()
 
 
-def salvar_no_banco(df_novo, modo='append'):
+def salvar_no_banco(df, nome_tabela='tabela_corte', modo='append'):
     """
-    Salva os dados tratados no banco.
-    modo='append': Adiciona ao que já existe.
-    modo='replace': Apaga tudo e coloca o novo no lugar.
+    df: O DataFrame tratado da planilha
+    nome_tabela: Nome da tabela no banco MySQL
+    modo: 'append' (adiciona ao final) ou 'replace' (apaga tudo e põe a nova)
     """
-    conn = get_database_connection()
-    # index=False para não criar uma coluna de índice extra no banco
-    df_novo.to_sql('lancamentos', conn, if_exists=modo, index=False)
-    conn.close()
+    # 1. Monta a string de conexão (connection string)
+    # Formato: mysql+mysqlconnector://user:password@host:port/database
+    user = st.secrets["mysql"]["23xSJ58SMcsHFmr.root"]
+    password = st.secrets["mysql"]["4dR5wL52mQNtszP9"]
+    host = st.secrets["mysql"]["gateway01.eu-central-1.prod.aws.tidbcloud.com"]
+    port = st.secrets["mysql"]["4000"]
+    database = st.secrets["mysql"]["test"]
+
+    conexao_str = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{database}"
+
+    # 2. Cria a Engine do SQLAlchemy
+    engine = create_engine(conexao_str)
+
+    try:
+        # Modo 'replace': Destrói a antiga e cria uma nova igualzinha ao DataFrame
+        # index=False: Não cria coluna de índice numérico do Pandas
+        df.to_sql(name=nome_tabela, con=engine, if_exists='replace', index=False)
+        return True
+    except Exception as e:
+        st.error(f"Erro: {e}")
+        return False
 
 
 def tratar_planilha(uploaded_file):
@@ -228,7 +270,7 @@ with st.sidebar:
 
     st.divider()
     if st.button("🗑️ Limpar todo o Banco de Dados"):
-        conn = get_database_connection()
+        conn = init_connection()
         cursor = conn.cursor()
         cursor.execute("DROP TABLE IF EXISTS lancamentos")
         conn.commit()
