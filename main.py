@@ -95,18 +95,35 @@ def salvar_no_banco(df, nome_tabela='tabela_corte'):
         engine = create_engine(conexao_str)
         st.write("⚙️ Engine criada. Tentando enviar dados...")
 
-        # 4. Enviando
-        df.to_sql(name=nome_tabela, con=engine, if_exists='replace', index=False, chunksize=1000)
-        engine.dispose()  # <--- ADICIONE ISSO: Mata a conexão de escrita imediatamente
+        # AQUI MUDOU TUDO:
+        # Abrimos uma conexão explícita gerenciada
+        with engine.connect() as conn:
+
+            # Tentativa de limpeza preventiva (opcional, mas ajuda no seu caso)
+            # Tenta dar um rollback caso tenha algo pendente dessa sessão
+            try:
+                conn.rollback()
+            except:
+                pass
+
+            # Iniciamos a transação blindada
+            with conn.begin():
+                # method='multi' -> Acelera muito o upload (envia várias linhas num comando só)
+                # con=conn -> Passamos a conexão aberta, não a engine!
+                # 4. Enviando
+                df.to_sql(name=nome_tabela, con=conn, if_exists='replace', index=False, chunksize=1000, method='multi')
+
         st.write("✅ Comando to_sql finalizado!")
         return True
 
+
     except Exception as e:
-        engine.dispose()  # <--- AQUI TAMBÉM: Mata mesmo se der erro
-        st.error(f"❌ ERRO CRÍTICO: {e}")
-        # Isso imprime o erro completo no terminal/console do navegador para detalhes
+        st.error(f"❌ Erro ao salvar: {e}")
         print(e)
         return False
+    finally:
+
+        engine.dispose()
 
 
 def tratar_planilha(uploaded_file):
