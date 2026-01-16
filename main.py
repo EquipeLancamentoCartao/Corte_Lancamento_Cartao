@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 import io
 import mysql.connector
 import openpyxl
+from time import sleep
 
 # Configuração da página para ocupar mais espaço na tela
 st.set_page_config(page_title="Datas de Corte e Lançamento", layout="wide")
@@ -95,11 +96,13 @@ def salvar_no_banco(df, nome_tabela='tabela_corte'):
         st.write("⚙️ Engine criada. Tentando enviar dados...")
 
         # 4. Enviando
-        df.to_sql(name=nome_tabela, con=engine, if_exists='replace', index=False)
+        df.to_sql(name=nome_tabela, con=engine, if_exists='replace', index=False, chunksize=1000)
+        engine.dispose()  # <--- ADICIONE ISSO: Mata a conexão de escrita imediatamente
         st.write("✅ Comando to_sql finalizado!")
         return True
 
     except Exception as e:
+        engine.dispose()  # <--- AQUI TAMBÉM: Mata mesmo se der erro
         st.error(f"❌ ERRO CRÍTICO: {e}")
         # Isso imprime o erro completo no terminal/console do navegador para detalhes
         print(e)
@@ -218,13 +221,33 @@ with st.sidebar:
     uploaded_file = st.file_uploader("Subir nova planilha", type=['xlsx', 'xls'])
 
     if uploaded_file is not None:
+        # O botão de ação
         if st.button("Processar e Salvar"):
-            with st.spinner("Salvando no banco..."):
-                df_tratado = tratar_planilha(uploaded_file)
-                modo_sql = 'replace'
-                salvar_no_banco(df_tratado)
-            st.success("Salvo!")
-            st.rerun()
+
+            with st.spinner("Lendo arquivo e enviando para o TiDB..."):
+                try:
+                    # 1. SEGURANÇA: Reseta o ponteiro do arquivo para o início
+                    uploaded_file.seek(0)
+
+                    # 2. Processamento
+                    df_tratado = tratar_planilha(uploaded_file)
+
+                    # 3. Salvamento com verificação real
+                    # A função salvar_no_banco retorna True ou False, vamos usar isso!
+                    sucesso = salvar_no_banco(df_tratado)
+
+                    if sucesso:
+                        st.success("✅ Dados atualizados com sucesso!")
+                        # Espera 2 segundinhos para você ver a mensagem verde antes de sumir
+                        sleep(2)
+                        # Limpa o cache para o gráfico novo aparecer
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.error("❌ Ocorreu um erro ao salvar no banco. Verifique os logs.")
+
+                except Exception as e:
+                    st.error(f"Erro crítico no processamento: {e}")
 
     st.divider()
 
@@ -285,16 +308,6 @@ with st.sidebar:
 
     # O botão chama a função ANTES de rodar o app de novo
     st.button("Limpar Filtros", on_click=limpar_tudo)
-
-    st.divider()
-    if st.button("🗑️ Limpar todo o Banco de Dados"):
-        conn = init_connection()
-        cursor = conn.cursor()
-        cursor.execute("DROP TABLE IF EXISTS tabela_corte")
-        conn.commit()
-        conn.close()
-        st.warning("Banco de dados limpo!")
-        st.rerun()
 
 # --- ÁREA PRINCIPAL ---
 st.subheader("Visualização da Base de Dados")
