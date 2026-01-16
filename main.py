@@ -135,7 +135,6 @@ def salvar_no_banco(df, nome_tabela='tabela_corte'):
         print(e)
         return False
     finally:
-
         engine.dispose()
 
 
@@ -201,8 +200,17 @@ def tratar_planilha(uploaded_file):
     col_origem_corte = next((c for c in df_clean.columns if 'Data corte' in c), None)
     col_origem_lanc = next((c for c in df_clean.columns if 'Data lançamento' in c), None)
 
+    col_atualiza_corte = next((c for c in df_clean.columns if 'Data_Corte' in c), None)
+    col_atualiza_lanc = next((c for c in df_clean.columns if 'Data_Lancamento' in c), None)
+
     # 2. Verifica se encontrou as duas colunas
     if col_origem_corte and col_origem_lanc:
+        # 3. Faz o rename usando os nomes que encontramos
+        df_clean = df_clean.rename(columns={
+            col_origem_corte: 'Data_Corte',  # Padronizado
+            col_origem_lanc: 'Data_Lancamento'  # Padronizado
+        })
+    elif col_atualiza_corte and col_atualiza_lanc:
         # 3. Faz o rename usando os nomes que encontramos
         df_clean = df_clean.rename(columns={
             col_origem_corte: 'Data_Corte',  # Padronizado
