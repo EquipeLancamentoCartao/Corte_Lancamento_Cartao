@@ -41,6 +41,19 @@ def carregar_dados_do_banco():
     # (Certifique-se de usar o mesmo nome que definiu antes: init_connection ou criar_conexao)
     conn = init_connection()
 
+    # --- NOVIDADE: O CHECK-UP DA CONEXÃO ---
+    try:
+        # Verifica se o servidor responde. Se não, reconecta.
+        if not conn.is_connected():
+            conn.reconnect(attempts=3, delay=2)
+        # O ping garante que o socket está ativo
+        conn.ping(reconnect=True, attempts=3, delay=2)
+    except Exception:
+        # Se deu ruim mesmo, limpa o cache e cria uma do zero
+        st.cache_resource.clear()
+        conn = init_connection()
+    # -----------------------------------------
+
     try:
         # Lê a tabela.
         # IMPORTANTE: Confirme se o nome da tabela no TiDB é 'lancamentos' ou 'tabela_corte'
@@ -192,15 +205,15 @@ def tratar_planilha(uploaded_file):
     if col_origem_corte and col_origem_lanc:
         # 3. Faz o rename usando os nomes que encontramos
         df_clean = df_clean.rename(columns={
-            col_origem_corte: 'Data de corte',
-            col_origem_lanc: 'Data de lançamento'
+            col_origem_corte: 'Data_Corte',  # Padronizado
+            col_origem_lanc: 'Data_Lancamento'  # Padronizado
         })
     else:
         print('Alguma das colunas ("Data de corte" ou "Data de lançamento") não se encontra na planilha')
         print(f'colunas de datas de corte\n{df_clean.columns}')
         return False  # ou return apenas
 
-    cols_data = ['Data de corte', 'Data de lançamento']
+    cols_data = ['Data_Lancamento', 'Data_Corte']
     for col in cols_data:
         if col in df_clean.columns:
             df_clean[col] = pd.to_datetime(df_clean[col], errors='coerce')
@@ -343,14 +356,14 @@ if not df_visualizacao.empty:
     # Filtramos: Mostra se a data de corte OU a data de lançamento for HOJE
     # Usamos .dt.date para garantir que estamos comparando apenas dia/mês/ano (ignorando horas)
     filtro_hoje = (
-            df_visualizacao['Data de lançamento'].dt.date == hoje
+            df_visualizacao['Data_Lancamento'].dt.date == hoje
     )
 
     df_hoje = df_visualizacao[filtro_hoje]
 
     # Selecionamos apenas as colunas que você pediu
     # Nota: Certifique-se que o nome da coluna é "Convênios" (plural) ou "Convênio" (singular) conforme sua planilha
-    colunas_resumo = ['Convênio', 'Data de corte', 'Data de lançamento', 'Responsavel', 'Validação']
+    colunas_resumo = ['Convênio', 'Data_Corte', 'Data_Lancamento', 'Responsavel', 'Validação']
 
     # Verifica se as colunas existem antes de tentar mostrar (pra evitar erro se a planilha mudar)
     cols_existentes = [c for c in colunas_resumo if c in df_hoje.columns]
@@ -365,8 +378,8 @@ if not df_visualizacao.empty:
             use_container_width=True,
             hide_index=True,
             column_config={
-                "Data de corte": st.column_config.DateColumn("Data de corte", format="DD/MM/YYYY"),
-                "Data de lançamento": st.column_config.DateColumn("Data de lançamento", format="DD/MM/YYYY"),
+                "Data_Corte": st.column_config.DateColumn("Data_Corte", format="DD/MM/YYYY"),
+                "Data_Lancamento": st.column_config.DateColumn("Data_Lancamento", format="DD/MM/YYYY"),
             }
         )
     else:
@@ -400,11 +413,11 @@ if not df_visualizacao.empty:
     # Filtro de Data de Lançamento
     if data_filtro_lancamento:
         # Precisamos usar .dt.date para comparar Data (input) com Timestamp (pandas)
-        df_visualizacao = df_visualizacao[df_visualizacao['Data de lançamento'].dt.date == data_filtro_lancamento]
+        df_visualizacao = df_visualizacao[df_visualizacao['Data_Lancamento'].dt.date == data_filtro_lancamento]
 
     # Filtro de Data de Corte
     if data_filtro_corte:
-        df_visualizacao = df_visualizacao[df_visualizacao['Data de corte'].dt.date == data_filtro_corte]
+        df_visualizacao = df_visualizacao[df_visualizacao['Data_Corte'].dt.date == data_filtro_corte]
 
     # 3. Mostra o Resultado
     st.dataframe(
@@ -412,8 +425,8 @@ if not df_visualizacao.empty:
         use_container_width=True,
         hide_index=True,
         column_config={
-            "Data de corte": st.column_config.DateColumn("Data de corte", format="DD/MM/YYYY"),
-            "Data de lançamento": st.column_config.DateColumn("Data de lançamento", format="DD/MM/YYYY"),
+            "Data_Corte": st.column_config.DateColumn("Data_Corte", format="DD/MM/YYYY"),
+            "Data_Lancamento": st.column_config.DateColumn("Data_Lancamento", format="DD/MM/YYYY"),
         }
     )
 
