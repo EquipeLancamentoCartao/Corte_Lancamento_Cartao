@@ -4,4 +4,3 @@ openpyxl
 xlsxwriter
 mysql-connector-python
 sqlalchemy
-time
