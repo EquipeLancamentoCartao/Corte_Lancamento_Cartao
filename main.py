@@ -161,6 +161,8 @@ def tratar_planilha(uploaded_file):
     # Nota: Se a planilha for muito grande, existem métodos vetoriais mais rápidos,
     # mas este é mais fácil de entender e manter.
 
+    current_esfera = "Indefinido"
+
     # Lista para marcar quais linhas vamos deletar (as linhas de cabeçalho mesclado)
     indices_para_remover = []
 
@@ -206,9 +208,7 @@ def tratar_planilha(uploaded_file):
         # 3. Faz o rename usando os nomes que encontramos
         df_clean = df_clean.rename(columns={
             col_origem_corte: 'Data_Corte',  # Padronizado
-            col_origem_lanc: 'Data_Lancamento',  # Padronizado
-            'Convênio': 'Convenio',
-            'Validação': 'Validacao'
+            col_origem_lanc: 'Data_Lancamento'  # Padronizado
         })
     elif col_atualiza_corte and col_atualiza_lanc:
         # 3. Faz o rename usando os nomes que encontramos
@@ -225,10 +225,6 @@ def tratar_planilha(uploaded_file):
     for col in cols_data:
         if col in df_clean.columns:
             df_clean[col] = pd.to_datetime(df_clean[col], errors='coerce')
-
-    # Subsitituir letras que podem conter ~, ´, ç
-    for colu in df_clean.columns:
-        df_clean[colu] = df_clean[colu].str.replace(r'[^a-zA-Z0-9 ]', '', regex=True)
 
     return df_clean
 
@@ -311,7 +307,7 @@ with st.sidebar:
 
     convenios_filtro = st.multiselect(
         "Filtrar Convênios:",
-        options=df_banco['Convenio'].unique(),
+        options=df_banco['Convênio'].unique(),
         key='f_convenio'
     )
 
@@ -329,7 +325,7 @@ with st.sidebar:
 
     validacao_filtro = st.multiselect(
         "Validador:",
-        options=df_banco['Validacao'].unique(),
+        options=df_banco['Validação'].unique(),
         key='f_validacao'
     )
 
@@ -375,7 +371,7 @@ if not df_visualizacao.empty:
 
     # Selecionamos apenas as colunas que você pediu
     # Nota: Certifique-se que o nome da coluna é "Convênios" (plural) ou "Convênio" (singular) conforme sua planilha
-    colunas_resumo = ['Convenio', 'Data_Corte', 'Data_Lancamento', 'Responsavel', 'Validacao']
+    colunas_resumo = ['Convênio', 'Data_Corte', 'Data_Lancamento', 'Responsavel', 'Validação']
 
     # Verifica se as colunas existem antes de tentar mostrar (pra evitar erro se a planilha mudar)
     cols_existentes = [c for c in colunas_resumo if c in df_hoje.columns]
@@ -408,7 +404,7 @@ if not df_visualizacao.empty:
 
     # Filtro de convênios
     if convenios_filtro:
-        df_visualizacao = df_visualizacao[df_visualizacao['Convenio'].isin(convenios_filtro)]
+        df_visualizacao = df_visualizacao[df_visualizacao['Convênio'].isin(convenios_filtro)]
 
     # Filtro de sistemas
     if sistema_filtro:
@@ -420,7 +416,7 @@ if not df_visualizacao.empty:
 
     # Filtro dos validadores
     if validacao_filtro:
-        df_visualizacao = df_visualizacao[df_visualizacao['Validacao'].isin(validacao_filtro)]
+        df_visualizacao = df_visualizacao[df_visualizacao['Validação'].isin(validacao_filtro)]
 
     # Filtro de Data de Lançamento
     if data_filtro_lancamento:
