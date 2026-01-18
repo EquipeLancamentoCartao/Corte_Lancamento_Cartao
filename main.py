@@ -31,16 +31,16 @@ def carregar_dados_do_banco():
     conn = init_connection()
 
     # --- NOVIDADE: O CHECK-UP DA CONEXÃO ---
-    # try:
+    try:
         # Verifica se o servidor responde. Se não, reconecta.
-    #    if not conn.is_connected():
-    #        conn.reconnect(attempts=3, delay=2)
+        if not conn.is_connected():
+            conn.reconnect(attempts=3, delay=2)
         # O ping garante que o socket está ativo
-    #    conn.ping(reconnect=True, attempts=3, delay=2)
-    # except Exception:
+        conn.ping(reconnect=True, attempts=3, delay=2)
+    except Exception:
         # Se deu ruim mesmo, limpa o cache e cria uma do zero
-    #    st.cache_resource.clear()
-    #    conn = init_connection()
+        st.cache_resource.clear()
+        conn = init_connection()
     # -----------------------------------------
 
     try:
