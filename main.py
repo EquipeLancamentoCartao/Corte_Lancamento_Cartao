@@ -22,17 +22,6 @@ def init_connection():
         port=st.secrets["mysql"]["port"]
     )
 
-def run_query(query, params=None):
-    conn = init_connection()
-    # O cursor(dictionary=True) é útil para acessar colunas pelo nome
-    with conn.cursor(dictionary=True) as cursor:
-        cursor.execute(query, params)
-        if query.strip().upper().startswith("SELECT"):
-            return cursor.fetchall()
-        else:
-            conn.commit()
-            return None
-
 
 def carregar_dados_do_banco():
     """Lê os dados salvos no banco para mostrar na tela"""
@@ -42,25 +31,26 @@ def carregar_dados_do_banco():
     conn = init_connection()
 
     # --- NOVIDADE: O CHECK-UP DA CONEXÃO ---
-    try:
+    # try:
         # Verifica se o servidor responde. Se não, reconecta.
-        if not conn.is_connected():
-            conn.reconnect(attempts=3, delay=2)
+    #    if not conn.is_connected():
+    #        conn.reconnect(attempts=3, delay=2)
         # O ping garante que o socket está ativo
-        conn.ping(reconnect=True, attempts=3, delay=2)
-    except Exception:
+    #    conn.ping(reconnect=True, attempts=3, delay=2)
+    # except Exception:
         # Se deu ruim mesmo, limpa o cache e cria uma do zero
-        st.cache_resource.clear()
-        conn = init_connection()
+    #    st.cache_resource.clear()
+    #    conn = init_connection()
     # -----------------------------------------
 
     try:
         # Lê a tabela.
         # IMPORTANTE: Confirme se o nome da tabela no TiDB é 'lancamentos' ou 'tabela_corte'
         df = pd.read_sql('SELECT * FROM tabela_corte', conn)
+        conn.commit()
 
         # Converte as colunas de data (ajuste os nomes conforme suas colunas reais)
-        cols_data = ['Data de Lancamento', 'Data de Corte']  # Exemplo de nomes sem espaço, padrão SQL
+        cols_data = ['Data de Lançamento', 'Data de Corte']  # Exemplo de nomes sem espaço, padrão SQL
 
         for col in cols_data:
             if col in df.columns:
@@ -207,8 +197,8 @@ def tratar_planilha(uploaded_file):
     if col_origem_corte and col_origem_lanc:
         # 3. Faz o rename usando os nomes que encontramos
         df_clean = df_clean.rename(columns={
-            col_origem_corte: 'Data_Corte',  # Padronizado
-            col_origem_lanc: 'Data_Lancamento'  # Padronizado
+            col_origem_corte: 'Data de Corte',  # Padronizado
+            col_origem_lanc: 'Data de Lançamento'  # Padronizado
         })
     elif col_atualiza_corte and col_atualiza_lanc:
         # 3. Faz o rename usando os nomes que encontramos
@@ -221,7 +211,7 @@ def tratar_planilha(uploaded_file):
         print(f'colunas de datas de corte\n{df_clean.columns}')
         return False  # ou return apenas
 
-    cols_data = ['Data_Lancamento', 'Data_Corte']
+    cols_data = ['Data de Lançamento', 'Data de Corte']
     for col in cols_data:
         if col in df_clean.columns:
             df_clean[col] = pd.to_datetime(df_clean[col], errors='coerce')
@@ -363,15 +353,16 @@ if not df_visualizacao.empty:
 
     # Filtramos: Mostra se a data de corte OU a data de lançamento for HOJE
     # Usamos .dt.date para garantir que estamos comparando apenas dia/mês/ano (ignorando horas)
+    print(f'df_visualizacao:\n{df_visualizacao.columns}')
     filtro_hoje = (
-            df_visualizacao['Data_Lancamento'].dt.date == hoje
+            df_visualizacao['Data de Lançamento'].dt.date == hoje
     )
 
     df_hoje = df_visualizacao[filtro_hoje]
 
     # Selecionamos apenas as colunas que você pediu
     # Nota: Certifique-se que o nome da coluna é "Convênios" (plural) ou "Convênio" (singular) conforme sua planilha
-    colunas_resumo = ['Convênio', 'Data_Corte', 'Data_Lancamento', 'Responsavel', 'Validação']
+    colunas_resumo = ['Convênio', 'Data de Corte', 'Data de Lançamento', 'Responsavel', 'Validação']
 
     # Verifica se as colunas existem antes de tentar mostrar (pra evitar erro se a planilha mudar)
     cols_existentes = [c for c in colunas_resumo if c in df_hoje.columns]
@@ -386,8 +377,8 @@ if not df_visualizacao.empty:
             use_container_width=True,
             hide_index=True,
             column_config={
-                "Data_Corte": st.column_config.DateColumn("Data_Corte", format="DD/MM/YYYY"),
-                "Data_Lancamento": st.column_config.DateColumn("Data_Lancamento", format="DD/MM/YYYY"),
+                "Data de Corte": st.column_config.DateColumn("Data de Corte", format="DD/MM/YYYY"),
+                "Data de Lançamento": st.column_config.DateColumn("Data de Lançamento", format="DD/MM/YYYY"),
             }
         )
     else:
@@ -421,11 +412,11 @@ if not df_visualizacao.empty:
     # Filtro de Data de Lançamento
     if data_filtro_lancamento:
         # Precisamos usar .dt.date para comparar Data (input) com Timestamp (pandas)
-        df_visualizacao = df_visualizacao[df_visualizacao['Data_Lancamento'].dt.date == data_filtro_lancamento]
+        df_visualizacao = df_visualizacao[df_visualizacao['Data de Lançamento'].dt.date == data_filtro_lancamento]
 
     # Filtro de Data de Corte
     if data_filtro_corte:
-        df_visualizacao = df_visualizacao[df_visualizacao['Data_Corte'].dt.date == data_filtro_corte]
+        df_visualizacao = df_visualizacao[df_visualizacao['Data de Corte'].dt.date == data_filtro_corte]
 
     # 3. Mostra o Resultado
     st.dataframe(
@@ -433,8 +424,8 @@ if not df_visualizacao.empty:
         use_container_width=True,
         hide_index=True,
         column_config={
-            "Data_Corte": st.column_config.DateColumn("Data_Corte", format="DD/MM/YYYY"),
-            "Data_Lancamento": st.column_config.DateColumn("Data_Lancamento", format="DD/MM/YYYY"),
+            "Data de Corte": st.column_config.DateColumn("Data de Corte", format="DD/MM/YYYY"),
+            "Data de Lançamento": st.column_config.DateColumn("Data de Lançamento", format="DD/MM/YYYY"),
         }
     )
 
