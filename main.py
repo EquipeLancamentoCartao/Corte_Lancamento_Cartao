@@ -383,7 +383,7 @@ if not df_visualizacao.empty:
             }
         )
     else:
-        st.info(f"✅ Nenhuma pendência de corte ou lançamento para hoje ({hoje.strftime('%d/%m/%Y')}).")
+        st.info(f"✅ Nenhuma pendência de lançamento para hoje ({hoje.strftime('%d/%m/%Y')}).")
 
     st.divider()  # Uma linha para separar o resumo da tabela completa
 
