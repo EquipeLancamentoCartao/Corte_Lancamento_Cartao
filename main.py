@@ -52,6 +52,7 @@ def carregar_dados_do_banco():
         # Converte as colunas de data (ajuste os nomes conforme suas colunas reais)
         cols_data = ['Data de Lançamento', 'Data de Corte']  # Exemplo de nomes sem espaço, padrão SQL
 
+
         for col in cols_data:
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col], errors='coerce')
