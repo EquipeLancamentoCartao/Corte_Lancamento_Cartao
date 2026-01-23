@@ -191,8 +191,8 @@ def tratar_planilha(uploaded_file):
     col_origem_corte = next((c for c in df_clean.columns if 'Data corte' in c), None)
     col_origem_lanc = next((c for c in df_clean.columns if 'Data lançamento' in c), None)
 
-    col_atualiza_corte = next((c for c in df_clean.columns if 'Data_Corte' in c), None)
-    col_atualiza_lanc = next((c for c in df_clean.columns if 'Data_Lancamento' in c), None)
+    col_atualiza_corte = next((c for c in df_clean.columns if 'Data de Corte' in c), None)
+    col_atualiza_lanc = next((c for c in df_clean.columns if 'Data de Lançamento' in c), None)
 
     # 2. Verifica se encontrou as duas colunas
     if col_origem_corte and col_origem_lanc:
@@ -204,8 +204,8 @@ def tratar_planilha(uploaded_file):
     elif col_atualiza_corte and col_atualiza_lanc:
         # 3. Faz o rename usando os nomes que encontramos
         df_clean = df_clean.rename(columns={
-            col_origem_corte: 'Data_Corte',  # Padronizado
-            col_origem_lanc: 'Data_Lancamento'  # Padronizado
+            col_origem_corte: 'Data de Corte',  # Padronizado
+            col_origem_lanc: 'Datade Lançamento'  # Padronizado
         })
     else:
         print('Alguma das colunas ("Data de corte" ou "Data de lançamento") não se encontra na planilha')
