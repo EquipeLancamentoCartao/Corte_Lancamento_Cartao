@@ -11,71 +11,63 @@ from time import sleep
 # Configuração da página para ocupar mais espaço na tela
 st.set_page_config(page_title="Datas de Corte e Lançamento", layout="wide")
 
-@st.cache_resource(ttl=600)
-def init_connection():
-    # Pega os dados do secrets (tanto local quanto na nuvem)
-    return mysql.connector.connect(
-        host=st.secrets["mysql"]["host"],
-        user=st.secrets["mysql"]["user"],
-        password=st.secrets["mysql"]["password"],
-        database=st.secrets["mysql"]["database"],
-        port=st.secrets["mysql"]["port"]
+
+@st.cache_resource
+def init_db_engine():
+    # Pega os dados
+    user = st.secrets["mysql"]["user"]
+    password = st.secrets["mysql"]["password"]
+    host = st.secrets["mysql"]["host"]
+    port = st.secrets["mysql"]["port"]
+    database = st.secrets["mysql"]["database"]
+
+    # Cria a Engine com Pool de conexões
+    # pool_size=5: Mantém 5 conexões abertas prontas pra uso
+    # max_overflow=10: Pode abrir mais 10 se tiver muito tráfego
+    return create_engine(
+        f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{database}",
+        pool_size=5,
+        max_overflow=10,
+        pool_pre_ping=True,  # Evita erro de conexão perdida
+        pool_recycle=3600
     )
 
 
+# Atualize a função de leitura para usar a Engine
 def carregar_dados_do_banco():
-    """Lê os dados salvos no banco para mostrar na tela"""
+    """Lê os dados usando a Engine (Thread-safe)"""
 
-    # 1. Usa a nova função de conexão que pega os dados do secrets.toml
-    # (Certifique-se de usar o mesmo nome que definiu antes: init_connection ou criar_conexao)
-    conn = init_connection()
-
-    # --- NOVIDADE: O CHECK-UP DA CONEXÃO ---
-    try:
-        # Verifica se o servidor responde. Se não, reconecta.
-        if not conn.is_connected():
-            conn.reconnect(attempts=3, delay=2)
-        # O ping garante que o socket está ativo
-        conn.ping(reconnect=True, attempts=3, delay=2)
-    except Exception:
-        # Se deu ruim mesmo, limpa o cache e cria uma do zero
-        st.cache_resource.clear()
-        conn = init_connection()
-    # -----------------------------------------
+    # Pega a engine do cache (seguro compartilhar)
+    engine = init_db_engine()
 
     try:
-        # Lê a tabela.
-        # IMPORTANTE: Confirme se o nome da tabela no TiDB é 'lancamentos' ou 'tabela_corte'
-        df = pd.read_sql('SELECT * FROM tabela_corte', conn)
-        conn.commit()
+        # Pandas adora Engine! Ele gerencia a conexão sozinho (abre, lê, fecha)
+        # Isso resolve o Warning e o Segmentation Fault
+        df = pd.read_sql('SELECT * FROM tabela_corte', engine)
 
-        # Converte as colunas de data (ajuste os nomes conforme suas colunas reais)
-        cols_data = ['Data de Lançamento', 'Data de Corte']  # Exemplo de nomes sem espaço, padrão SQL
+        # Seus tratamentos continuam iguais...
+        cols_datas = ['Data de corte', 'Data de lançamento']
 
+        # Padronização de nomes (caso precise)
+        mapa_colunas = {
+            'Data_Corte': 'Data de corte',
+            'Data_Lancamento': 'Data de lançamento',
+            'Data de Lancamento': 'Data de lançamento'
+        }
+        df = df.rename(columns=mapa_colunas)
 
-        for col in cols_data:
+        for col in cols_datas:
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col], errors='coerce')
 
         return df
 
-
     except Exception as e:
-
-        # Se o erro for "Table doesn't exist" (código 1146), a gente finge que não viu
-
-        # e retorna uma tabela vazia, pois é apenas o primeiro acesso.
-
+        # Se tabela não existe
         if "1146" in str(e):
-
             return pd.DataFrame()
-
         else:
-
-            # Se for outro erro (senha, conexão), aí sim mostramos na tela
-
             st.error(f"Erro ao carregar dados: {e}")
-
             return pd.DataFrame()
 
 
