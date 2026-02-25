@@ -285,7 +285,6 @@ def limpar_tudo():
 # --- BARRA LATERAL ---
 with st.sidebar:
     # --- BOTÃO DE TEMA ---
-
     st.header("⚙️ Administração")
     uploaded_file = st.file_uploader("Subir nova planilha", type=['xlsx', 'xls'])
 
@@ -505,6 +504,9 @@ if not df_base_original.empty:
     # 1. Criar um buffer na memória
     buffer = io.BytesIO()
 
+    df_sem_id = df_visualizacao.copy()
+    if 'id' in df_sem_id.columns:
+        df_sem_id = df_sem_id.drop(columns=['id'])
     with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
         df_visualizacao.to_excel(writer, index=False, sheet_name='Acessos')
 
