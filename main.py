@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 import sqlite3
 from sqlalchemy import create_engine
+from sqlalchemy import text
 import io
 import mysql.connector
 import openpyxl
@@ -97,19 +98,32 @@ def salvar_no_banco(df, nome_tabela='tabela_corte'):
 
             # Tentativa de limpeza preventiva (opcional, mas ajuda no seu caso)
             # Tenta dar um rollback caso tenha algo pendente dessa sessão
-            try:
-                conn.rollback()
-            except:
-                pass
+            # try:
+            #     conn.rollback()
+            # except:
+            #     pass
 
             # Iniciamos a transação blindada
             with conn.begin():
-                # method='multi' -> Acelera muito o upload (envia várias linhas num comando só)
-                # con=conn -> Passamos a conexão aberta, não a engine!
-                # 4. Enviando
-                df.to_sql(name=nome_tabela, con=conn, if_exists='replace', index=False, chunksize=1000, method='multi')
+                # 1. Limpa os dados atuais (TRUNCATE é mais rápido que DELETE)
+                # Mas mantém a estrutura, os IDs e os índices intactos
+                conn.execute(text("TRUNCATE TABLE tabela_corte"))
 
-        st.write("✅ Comando to_sql finalizado!")
+                # 2. Prepara o DF para o banco (remove duplicatas do Excel)
+                df_novo = df.drop_duplicates(
+                    subset=['Convênio'])
+
+                # 3. Insere os novos dados
+                # Usamos 'append' porque o TRUNCATE já deixou a tabela vazia
+                df_novo.to_sql(
+                    name='tabela_corte',
+                    con=conn,
+                    if_exists='append',
+                    index=False,
+                    chunksize=1000
+                )
+
+        st.cache_data.clear()
         return True
 
 
@@ -120,6 +134,40 @@ def salvar_no_banco(df, nome_tabela='tabela_corte'):
     finally:
         engine.dispose()
 
+
+def salvar_edicoes_cirurgicas(df_editado, df_original):
+    """Atualiza apenas as células modificadas comparando os DataFrames"""
+    engine = init_db_engine()
+
+    with engine.connect() as conn:
+        with conn.begin():
+            for i, row in df_editado.iterrows():
+                # Compara a linha atual do editor com a linha correspondente do banco
+                # Se houver diferença, dispara o UPDATE
+                if not row.equals(df_original.iloc[i]):
+                    query = text("""
+                        UPDATE tabela_corte SET 
+                        Convênio=:conv, Sistema=:sis, Responsavel=:resp, 
+                        Validação=:val, `Data de Corte`=:dt_c, `Data de Lançamento`=:dt_l
+                        WHERE id=:id
+                    """)
+
+                    # Convertendo datas para string para o SQL não se perder
+                    dt_c = row['Data de Corte'].strftime('%Y-%m-%d') if pd.notnull(row['Data de Corte']) else None
+                    dt_l = row['Data de Lançamento'].strftime('%Y-%m-%d') if pd.notnull(
+                        row['Data de Lançamento']) else None
+
+                    params = {
+                        "conv": row['Convênio'], "sis": row['Sistema'],
+                        "resp": row['Responsavel'], "val": row['Validação'],
+                        "dt_c": dt_c, "dt_l": dt_l, "id": row['id']
+                    }
+                    conn.execute(query, params)
+
+    st.cache_data.clear()
+    st.success("✅ Alterações salvas com sucesso!")
+    sleep(1)
+    st.rerun()
 
 def tratar_planilha(uploaded_file):
     """
@@ -334,11 +382,14 @@ with st.sidebar:
 st.subheader("Visualização da Base de Dados")
 
 # 1. Carrega do Banco
-df_visualizacao = carregar_dados_do_banco()
+df_base_original = carregar_dados_do_banco()
 
-if not df_visualizacao.empty:
+
+
+if not df_base_original.empty:
 
     # --- SEUS FILTROS DE DATA AQUI ---
+    df_visualizacao = df_base_original.copy()
 
     # --- NOVIDADE: TABELA DE "HOJE" ---
     # Pegamos a data atual do sistema
@@ -411,26 +462,39 @@ if not df_visualizacao.empty:
     if data_filtro_corte:
         df_visualizacao = df_visualizacao[df_visualizacao['Data de Corte'].dt.date == data_filtro_corte]
 
-    # 3. Mostra o Resultado
-    st.dataframe(
+    df_editado = st.data_editor(
         df_visualizacao,
-        use_container_width=True,
         hide_index=True,
         column_config={
+            "id": None,
             "Data de Corte": st.column_config.DateColumn("Data de Corte", format="DD/MM/YYYY"),
             "Data de Lançamento": st.column_config.DateColumn("Data de Lançamento", format="DD/MM/YYYY"),
-        }
+        },
+        use_container_width=True,
+        num_rows="dynamic"
     )
+    # 1. Criar um buffer na memória
+    buffer = io.BytesIO()
+
+    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+        df_visualizacao.to_excel(writer, index=False, sheet_name='Acessos')
 
     st.caption(f"Mostrando {len(df_visualizacao)} registros encontrados.")
 
     # Botão de Download
     st.download_button(
         label="📥 Baixar Dados Filtrados",
-        data=to_excel(df_visualizacao),
+        data=buffer.getvalue(),
         file_name="relatorio_filtrado.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
+    # --- PARTE FINAL DO CÓDIGO ---
+    if st.button("💾 Salvar Alterações", type="primary"):
+        # Chamamos a função passando o que está na tela (editado)
+        # e o que veio do banco (original) para comparação
+        salvar_edicoes_cirurgicas(df_editado, df_base_original)
+        st.success("Alterações salvas com sucesso!")
 
 else:
     st.info("O banco de dados está vazio. Use a barra lateral para fazer o primeiro upload.")
