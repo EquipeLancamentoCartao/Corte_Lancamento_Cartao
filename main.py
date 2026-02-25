@@ -398,35 +398,64 @@ if not df_base_original.empty:
     # Filtramos: Mostra se a data de corte OU a data de lançamento for HOJE
     # Usamos .dt.date para garantir que estamos comparando apenas dia/mês/ano (ignorando horas)
     print(f'df_visualizacao:\n{df_visualizacao.columns}')
-    filtro_hoje = (
+    filtro_lancamento_hoje = (
             df_visualizacao['Data de Lançamento'].dt.date == hoje
     )
 
-    df_hoje = df_visualizacao[filtro_hoje]
+    filtro_corte_hoje = (df_visualizacao['Data de Corte'].dt.date == hoje)
+
+    df_lancamento_hoje = df_visualizacao[filtro_lancamento_hoje]
+
+    df_corte_hoje = df_visualizacao[filtro_corte_hoje]
+
+    # --- INTERFACE POR ABAS ---
+    st.subheader(f"📅 Pendências de Hoje ({hoje.strftime('%d/%m/%Y')})")
+
+    # Criamos as duas abas
+    tab_lancamentos, tab_cortes = st.tabs(["🚀 Lançamentos de Hoje", "✂️ Cortes de Hoje"])
 
     # Selecionamos apenas as colunas que você pediu
     # Nota: Certifique-se que o nome da coluna é "Convênios" (plural) ou "Convênio" (singular) conforme sua planilha
     colunas_resumo = ['Convênio', 'Data de Corte', 'Data de Lançamento', 'Responsavel', 'Validação']
 
     # Verifica se as colunas existem antes de tentar mostrar (pra evitar erro se a planilha mudar)
-    cols_existentes = [c for c in colunas_resumo if c in df_hoje.columns]
-    df_hoje_resumo = df_hoje[cols_existentes]
+    cols_existentes = [c for c in colunas_resumo if c in df_lancamento_hoje.columns]
+    df_hoje_resumo = df_lancamento_hoje[cols_existentes]
+    df_corte_resumo = df_corte_hoje[cols_existentes]
 
-    # Exibe o alerta
-    if not df_hoje_resumo.empty:
-        st.success(
-            f"📅 **Atenção: Existem {len(df_hoje_resumo)} convênios para tratar hoje ({hoje.strftime('%d/%m/%Y')})!**")
-        st.dataframe(
-            df_hoje_resumo,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Data de Corte": st.column_config.DateColumn("Data de Corte", format="DD/MM/YYYY"),
-                "Data de Lançamento": st.column_config.DateColumn("Data de Lançamento", format="DD/MM/YYYY"),
-            }
-        )
-    else:
-        st.info(f"✅ Nenhuma pendência de lançamento para hoje ({hoje.strftime('%d/%m/%Y')}).")
+    with tab_lancamentos:
+        # Exibe o alerta
+        if not df_hoje_resumo.empty:
+            st.success(
+                f"📅 **Atenção: Existem {len(df_hoje_resumo)} convênios para tratar hoje ({hoje.strftime('%d/%m/%Y')})!**")
+            st.dataframe(
+                df_hoje_resumo,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Data de Corte": st.column_config.DateColumn("Data de Corte", format="DD/MM/YYYY"),
+                    "Data de Lançamento": st.column_config.DateColumn("Data de Lançamento", format="DD/MM/YYYY"),
+                }
+            )
+        else:
+            st.info(f"✅ Nenhuma pendência de lançamento para hoje ({hoje.strftime('%d/%m/%Y')}).")
+    with tab_cortes:
+        # Exibe o alerta
+        if not df_corte_resumo.empty:
+            st.success(
+                f"📅 **Atenção: Existem {len(df_corte_resumo)} convênios para tratar hoje ({hoje.strftime('%d/%m/%Y')})!**")
+            st.dataframe(
+                df_corte_resumo,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Data de Corte": st.column_config.DateColumn("Data de Corte", format="DD/MM/YYYY"),
+                    "Data de Lançamento": st.column_config.DateColumn("Data de Lançamento", format="DD/MM/YYYY"),
+                }
+            )
+        else:
+            st.info(f"✅ Nenhuma pendência de corte para hoje ({hoje.strftime('%d/%m/%Y')}).")
+
 
     st.divider()  # Uma linha para separar o resumo da tabela completa
 
