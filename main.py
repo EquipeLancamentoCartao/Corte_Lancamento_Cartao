@@ -141,28 +141,41 @@ def salvar_edicoes_cirurgicas(df_editado, df_original):
 
     with engine.connect() as conn:
         with conn.begin():
+            # 1. IDENTIFICAR DELEÇÕES
+            # Se um ID existia no original mas não está no editado, ele foi deletado
+            ids_originais = set(df_original['id'].tolist())
+            ids_editados = set(df_editado['id'].dropna().tolist())
+            ids_para_deletar = ids_originais - ids_editados
+
+            if ids_para_deletar:
+                # Criamos a query manualmente para garantir a compatibilidade
+                format_ids = ", ".join(map(str, ids_para_deletar))
+                conn.execute(text(f"DELETE FROM tabela_corte WHERE id IN ({format_ids})"))
+
+            # 2. IDENTIFICAR ALTERAÇÕES (Mesma lógica de antes)
             for i, row in df_editado.iterrows():
-                # Compara a linha atual do editor com a linha correspondente do banco
-                # Se houver diferença, dispara o UPDATE
-                if not row.equals(df_original.iloc[i]):
+                # Se for uma linha nova (sem ID), você pode tratar aqui com um INSERT
+                if pd.isna(row.get('id')):
+                    # Lógica de INSERT para novas linhas se desejar
+                    continue
+
+                # Se a linha já existia, comparamos para ver se mudou algo
+                # Localizamos a linha original pelo ID para comparar
+                linha_orig = df_original[df_original['id'] == row['id']].iloc[0]
+
+                if not row.equals(linha_orig):
                     query = text("""
                         UPDATE tabela_corte SET 
                         Convênio=:conv, Sistema=:sis, Responsavel=:resp, 
                         Validação=:val, `Data de Corte`=:dt_c, `Data de Lançamento`=:dt_l
                         WHERE id=:id
                     """)
-
-                    # Convertendo datas para string para o SQL não se perder
-                    dt_c = row['Data de Corte'].strftime('%Y-%m-%d') if pd.notnull(row['Data de Corte']) else None
-                    dt_l = row['Data de Lançamento'].strftime('%Y-%m-%d') if pd.notnull(
-                        row['Data de Lançamento']) else None
-
-                    params = {
+                    conn.execute(query, {
                         "conv": row['Convênio'], "sis": row['Sistema'],
                         "resp": row['Responsavel'], "val": row['Validação'],
-                        "dt_c": dt_c, "dt_l": dt_l, "id": row['id']
-                    }
-                    conn.execute(query, params)
+                        "dt_c": row['Data de Corte'], "dt_l": row['Data de Lançamento'],
+                        "id": row['id']
+                    })
 
     st.cache_data.clear()
     st.success("✅ Alterações salvas com sucesso!")
