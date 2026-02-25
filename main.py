@@ -508,7 +508,7 @@ if not df_base_original.empty:
     if 'id' in df_sem_id.columns:
         df_sem_id = df_sem_id.drop(columns=['id'])
     with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-        df_visualizacao.to_excel(writer, index=False, sheet_name='Acessos')
+        df_sem_id.to_excel(writer, index=False, sheet_name='Acessos')
 
     st.caption(f"Mostrando {len(df_visualizacao)} registros encontrados.")
 
