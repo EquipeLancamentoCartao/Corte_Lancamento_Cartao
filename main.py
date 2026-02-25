@@ -135,32 +135,31 @@ def salvar_no_banco(df, nome_tabela='tabela_corte'):
         engine.dispose()
 
 
-def salvar_edicoes_cirurgicas(df_editado, df_original):
+def salvar_edicoes_cirurgicas(df_editado, df_original, df_filtrado_antes_da_edicao):
     """Atualiza apenas as células modificadas comparando os DataFrames"""
     engine = init_db_engine()
 
     with engine.connect() as conn:
         with conn.begin():
-            # 1. IDENTIFICAR DELEÇÕES
-            # Se um ID existia no original mas não está no editado, ele foi deletado
-            ids_originais = set(df_original['id'].tolist())
-            ids_editados = set(df_editado['id'].dropna().tolist())
-            ids_para_deletar = ids_originais - ids_editados
+            # --- CORREÇÃO DO BUG DE DELEÇÃO ---
+            # Só podemos deletar o que estava VISÍVEL e o usuário removeu.
+            # Se algo não estava na tela por causa do filtro, não pode ser deletado!
+
+            ids_que_estavam_na_tela = set(df_filtrado_antes_da_edicao['id'].tolist())
+            ids_que_ficaram_apos_edicao = set(df_editado['id'].dropna().tolist())
+
+            # Deletamos apenas o que estava na tela e "sumiu"
+            ids_para_deletar = ids_que_estavam_na_tela - ids_que_ficaram_apos_edicao
 
             if ids_para_deletar:
-                # Criamos a query manualmente para garantir a compatibilidade
                 format_ids = ", ".join(map(str, ids_para_deletar))
                 conn.execute(text(f"DELETE FROM tabela_corte WHERE id IN ({format_ids})"))
 
-            # 2. IDENTIFICAR ALTERAÇÕES (Mesma lógica de antes)
+            # --- PARTE DE UPDATE (Continua igual) ---
             for i, row in df_editado.iterrows():
-                # Se for uma linha nova (sem ID), você pode tratar aqui com um INSERT
-                if pd.isna(row.get('id')):
-                    # Lógica de INSERT para novas linhas se desejar
-                    continue
+                if pd.isna(row.get('id')): continue
 
-                # Se a linha já existia, comparamos para ver se mudou algo
-                # Localizamos a linha original pelo ID para comparar
+                # Buscamos a linha original para comparar se houve mudança
                 linha_orig = df_original[df_original['id'] == row['id']].iloc[0]
 
                 if not row.equals(linha_orig):
@@ -503,6 +502,9 @@ if not df_base_original.empty:
     if data_filtro_corte:
         df_visualizacao = df_visualizacao[df_visualizacao['Data de Corte'].dt.date == data_filtro_corte]
 
+    # No seu código principal:
+    df_antes_de_editar = df_visualizacao.copy()  # Salva o estado do filtro
+
     df_editado = st.data_editor(
         df_visualizacao,
         hide_index=True,
@@ -537,7 +539,7 @@ if not df_base_original.empty:
     if st.button("💾 Salvar Alterações", type="primary"):
         # Chamamos a função passando o que está na tela (editado)
         # e o que veio do banco (original) para comparação
-        salvar_edicoes_cirurgicas(df_editado, df_base_original)
+        salvar_edicoes_cirurgicas(df_editado, df_base_original, df_antes_de_editar)
         st.success("Alterações salvas com sucesso!")
 
 else:
