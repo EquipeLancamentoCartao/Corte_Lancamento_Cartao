@@ -130,14 +130,20 @@ def salvar_no_banco(df, nome_tabela='tabela_corte'):
                         VALUES (:conv, :sis, :resp, :val, :ref, :dt_c, :dt_l, :alt)
                     """)
 
+            # Função auxiliar rápida para limpar NaT
+            def limpar_data(valor):
+                if pd.isna(valor) or str(valor) == 'NaT':
+                    return None
+                return valor
+
             session.execute(query, {
                 "conv": row.get('Convênio'),
                 "sis": row.get('Sistema'),
                 "resp": row.get('Responsavel'),
                 "val": row.get('Validação'),
                 "ref": row.get('Referência'),
-                "dt_c": row.get('Data de Corte'),
-                "dt_l": row.get('Data de Lançamento'),
+                "dt_c": limpar_data(row.get('Data de Corte')),
+                "dt_l": limpar_data(row.get('Data de Lançamento')),
                 "alt": agora
             })
 
