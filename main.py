@@ -15,7 +15,7 @@ from time import sleep
 st.set_page_config(page_title="Datas de Corte e Lançamento", layout="wide")
 
 
-@st.cache_data(ttl=600)
+@st.cache_resource(ttl=600)
 def init_db_engine():
     # Pega os dados
     user = st.secrets["mysql"]["user"]
