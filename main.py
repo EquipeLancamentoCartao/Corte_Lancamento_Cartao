@@ -543,15 +543,22 @@ if not df_base_original.empty:
 
     filtro_corte_hoje = (df_visualizacao['Data de Corte'].dt.date == hoje)
 
+    filtro_lancando_ainda = (
+            (df_visualizacao['Data de Lançamento'].dt.date <= hoje) &
+            (df_visualizacao['Data de Corte'].dt.date >= hoje)
+    )
+
     df_lancamento_hoje = df_visualizacao[filtro_lancamento_hoje]
 
     df_corte_hoje = df_visualizacao[filtro_corte_hoje]
+
+    df_lancando_ainda = df_visualizacao[filtro_lancando_ainda]
 
     # --- INTERFACE POR ABAS ---
     st.subheader(f"📅 Pendências de Hoje ({hoje.strftime('%d/%m/%Y')})")
 
     # Criamos as duas abas
-    tab_lancamentos, tab_cortes = st.tabs(["🚀 Lançamentos de Hoje", "✂️ Cortes de Hoje"])
+    tab_lancamentos, tab_cortes, tab_lancando = st.tabs(["🚀 Lançamentos de Hoje", "✂️ Cortes de Hoje", "⚠️ Em Período de Lançamento"])
 
     # Botão de abrir página do Doug
     st.markdown("""
@@ -568,6 +575,7 @@ if not df_base_original.empty:
     cols_existentes = [c for c in colunas_resumo if c in df_lancamento_hoje.columns]
     df_hoje_resumo = df_lancamento_hoje[cols_existentes]
     df_corte_resumo = df_corte_hoje[cols_existentes]
+    df_lancando_resumo = df_lancando_ainda[cols_existentes]
 
     with tab_lancamentos:
         # Exibe o alerta
@@ -589,7 +597,7 @@ if not df_base_original.empty:
         # Exibe o alerta
         if not df_corte_resumo.empty:
             st.success(
-                f"📅 **Atenção: Existem {len(df_corte_resumo)} convênios para tratar hoje ({hoje.strftime('%d/%m/%Y')})!**")
+                f"📅 **Atenção: Existem {len(df_corte_resumo)} convênios que cortam hoje ({hoje.strftime('%d/%m/%Y')})!**")
             st.dataframe(
                 df_corte_resumo,
                 use_container_width=True,
@@ -601,6 +609,21 @@ if not df_base_original.empty:
             )
         else:
             st.info(f"✅ Nenhuma pendência de corte para hoje ({hoje.strftime('%d/%m/%Y')}).")
+
+    with tab_lancando:
+        # Exibe o alerta
+        if not df_lancando_resumo.empty:
+            st.success(
+                f"📅 **Atenção: Existem {len(df_lancando_resumo)} convênios em período de lançamento ({hoje.strftime('%d/%m/%Y')})!**")
+            st.dataframe(
+                df_lancando_resumo,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Data de Corte": st.column_config.DateColumn("Data de Corte", format="DD/MM/YYYY"),
+                    "Data de Lançamento": st.column_config.DateColumn("Data de Lançamento", format="DD/MM/YYYY"),
+                }
+            )
 
 
     st.divider()  # Uma linha para separar o resumo da tabela completa
