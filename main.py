@@ -209,51 +209,70 @@ def salvar_no_banco(df, nome_tabela='tabela_corte'):
 
 
 def salvar_edicoes_cirurgicas(df_editado, df_original, df_filtrado_antes_da_edicao):
-    """Atualiza apenas as células modificadas comparando os DataFrames"""
     engine = init_db_engine()
-    # Horário de Brasília
     agora = get_hora_brasilia()
 
     with engine.connect() as conn:
         with conn.begin():
-            # --- CORREÇÃO DO BUG DE DELEÇÃO ---
-            # Só podemos deletar o que estava VISÍVEL e o usuário removeu.
-            # Se algo não estava na tela por causa do filtro, não pode ser deletado!
-
-            ids_que_estavam_na_tela = set(df_filtrado_antes_da_edicao['id'].tolist())
-            ids_que_ficaram_apos_edicao = set(df_editado['id'].dropna().tolist())
-
-            # Deletamos apenas o que estava na tela e "sumiu"
+            # 1. DELEÇÃO (Mantida)
+            ids_que_estavam_na_tela = set(df_filtrado_antes_da_edicao['id'].dropna().astype(int).tolist())
+            ids_que_ficaram_apos_edicao = set(df_editado['id'].dropna().astype(int).tolist())
             ids_para_deletar = ids_que_estavam_na_tela - ids_que_ficaram_apos_edicao
 
             if ids_para_deletar:
                 format_ids = ", ".join(map(str, ids_para_deletar))
                 conn.execute(text(f"DELETE FROM tabela_corte WHERE id IN ({format_ids})"))
 
-            # --- PARTE DE UPDATE (Continua igual) ---
+            # 2. UPDATE E INSERT
             for i, row in df_editado.iterrows():
-                if pd.isna(row.get('id')): continue
+                # Limpeza básica para evitar erros de tipos do Pandas (NaN -> None)
+                # Converta para datetime e depois para date (puro Python)
+                data_corte_limpa = pd.to_datetime(row['Data de Corte']).date() if pd.notna(
+                    row['Data de Corte']) else None
+                params = {
+                    "conv": None if pd.isna(row['Convênio']) else row['Convênio'],
+                    "sis": None if pd.isna(row['Sistema']) else row['Sistema'],
+                    "resp": None if pd.isna(row['Responsavel']) else row['Responsavel'],
+                    "val": None if pd.isna(row['Validação']) else row['Validação'],
+                    "ref": None if pd.isna(row['Referência']) else row['Referência'],
+                    "dt_c": None if pd.isna(row['Data de Corte']) else row['Data de Corte'],
+                    "dt_l": None if pd.isna(row['Data de Lançamento']) else row['Data de Lançamento'],
+                    "alt": agora
+                }
 
-                # Buscamos a linha original para comparar se houve mudança
-                linha_orig = df_original[df_original['id'] == row['id']].iloc[0]
-
-                if not row.equals(linha_orig):
-                    query = text("""
-                        UPDATE tabela_corte SET 
-                        Convênio=:conv, Sistema=:sis, Responsavel=:resp,
-                        Validação=:val, Referência=:ref, `Data de Corte`=:dt_c, `Data de Lançamento`=:dt_l, `Alterado em`=:alt
-                        WHERE id=:id
+                # CASO A: INSERT (Linha nova)
+                if pd.isna(row.get('id')):
+                    query_insert = text("""
+                        INSERT INTO tabela_corte (
+                            Convênio, Sistema, Responsavel, Validação, Referência, 
+                            `Data de Corte`, `Data de Lançamento`, `Alterado em`
+                        ) VALUES (
+                            :conv, :sis, :resp, :val, :ref, STR_TO_DATE(:dt_c, '%Y-%m-%d'), :dt_l, :alt
+                        )
                     """)
-                    conn.execute(query, {
-                        "conv": row['Convênio'], "sis": row['Sistema'],
-                        "resp": row['Responsavel'], "val": row['Validação'], "ref": row['Referência'],
-                        "dt_c": row['Data de Corte'], "dt_l": row['Data de Lançamento'], "alt": agora,
-                        "id": row['id']
-                    })
+                    conn.execute(query_insert, params)
+
+                # CASO B: UPDATE
+                else:
+                    id_atual = int(row['id'])
+                    # Busca a linha correspondente no backup que fizemos ao carregar a página
+                    linha_original = df_original[df_original['id'] == id_atual]
+
+                    if not linha_original.empty:
+                        # Compara a linha da tela com a do banco (convertendo para facilitar a vida do Pandas)
+                        if not row.equals(linha_original.iloc[0]):
+                            params["id"] = id_atual
+                            query_update = text("""
+                                UPDATE tabela_corte SET 
+                                Convênio=:conv, Sistema=:sis, Responsavel=:resp,
+                                Validação=:val, Referência=:ref, `Data de Corte`=:dt_c, 
+                                `Data de Lançamento`=:dt_l, `Alterado em`=:alt
+                                WHERE id=:id
+                            """)
+                            conn.execute(query_update, params)
 
     st.cache_data.clear()
-    st.success("✅ Alterações salvas com sucesso!")
-    sleep(1)
+    st.success("✅ Alterações salvas!")
     st.rerun()
 
 def tratar_planilha(uploaded_file):
