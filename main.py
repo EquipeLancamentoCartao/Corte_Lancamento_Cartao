@@ -49,7 +49,7 @@ def carregar_dados_do_banco():
         df = pd.read_sql('SELECT * FROM tabela_corte', engine)
 
         # Seus tratamentos continuam iguais...
-        cols_datas = ['Data de corte', 'Data de lançamento']
+        cols_datas = ['Data de Corte', 'Data de Lançamento']
 
         # Padronização de nomes (caso precise)
         mapa_colunas = {
@@ -61,7 +61,7 @@ def carregar_dados_do_banco():
 
         for col in cols_datas:
             if col in df.columns:
-                df[col] = pd.to_datetime(df[col], errors='coerce')
+                df[col] = pd.to_datetime(df[col], errors='coerce', dayfirst=True)
 
         # mês atual e próximo mês
         # mapa de meses
@@ -83,6 +83,7 @@ def carregar_dados_do_banco():
         excecoes = ['PINDARÉ-MIRIM', 'ITAPECURU-MIRIM']
 
         # cria colunas auxiliares
+        df['Data de Corte'] = pd.to_datetime(df['Data de Corte'], errors='coerce', dayfirst=True)
         df['mes_base'] = df['Data de Corte'].dt.month
         df['dia'] = df['Data de Corte'].dt.day
 
@@ -225,29 +226,38 @@ def salvar_edicoes_cirurgicas(df_editado, df_original, df_filtrado_antes_da_edic
 
             # 2. UPDATE E INSERT
             for i, row in df_editado.iterrows():
-                # Limpeza básica para evitar erros de tipos do Pandas (NaN -> None)
-                # Converta para datetime e depois para date (puro Python)
-                data_corte_limpa = pd.to_datetime(row['Data de Corte']).date() if pd.notna(
-                    row['Data de Corte']) else None
+                # --- TRATAMENTO SEGURO DE DATAS ---
+                # Forçamos a data a virar uma string no formato ISO (AAAA-MM-DD)
+                # Isso impede o MySQL de inverter dia com mês
+                def formatar_data_sql(valor):
+                    if pd.isna(valor): return None
+                    try:
+                        return pd.to_datetime(valor).strftime('%Y-%m-%d')
+                    except:
+                        return None
+
+                dt_corte = formatar_data_sql(row.get('Data de Corte'))
+                dt_lanca = formatar_data_sql(row.get('Data de Lançamento'))
+
                 params = {
-                    "conv": None if pd.isna(row['Convênio']) else row['Convênio'],
-                    "sis": None if pd.isna(row['Sistema']) else row['Sistema'],
-                    "resp": None if pd.isna(row['Responsavel']) else row['Responsavel'],
-                    "val": None if pd.isna(row['Validação']) else row['Validação'],
-                    "ref": None if pd.isna(row['Referência']) else row['Referência'],
-                    "dt_c": None if pd.isna(row['Data de Corte']) else row['Data de Corte'],
-                    "dt_l": None if pd.isna(row['Data de Lançamento']) else row['Data de Lançamento'],
+                    "conv": None if pd.isna(row.get('Convênio')) else row.get('Convênio'),
+                    "sis": None if pd.isna(row.get('Sistema')) else row.get('Sistema'),
+                    "resp": None if pd.isna(row.get('Responsavel')) else row.get('Responsavel'),
+                    "val": None if pd.isna(row.get('Validação')) else row.get('Validação'),
+                    "ref": None if pd.isna(row.get('Referência')) else row.get('Referência'),
+                    "dt_c": dt_corte,
+                    "dt_l": dt_lanca,
                     "alt": agora
                 }
 
-                # CASO A: INSERT (Linha nova)
+                # CASO A: INSERT
                 if pd.isna(row.get('id')):
                     query_insert = text("""
                         INSERT INTO tabela_corte (
                             Convênio, Sistema, Responsavel, Validação, Referência, 
                             `Data de Corte`, `Data de Lançamento`, `Alterado em`
                         ) VALUES (
-                            :conv, :sis, :resp, :val, :ref, STR_TO_DATE(:dt_c, '%Y-%m-%d'), :dt_l, :alt
+                            :conv, :sis, :resp, :val, :ref, :dt_c, :dt_l, :alt
                         )
                     """)
                     conn.execute(query_insert, params)
@@ -255,11 +265,10 @@ def salvar_edicoes_cirurgicas(df_editado, df_original, df_filtrado_antes_da_edic
                 # CASO B: UPDATE
                 else:
                     id_atual = int(row['id'])
-                    # Busca a linha correspondente no backup que fizemos ao carregar a página
                     linha_original = df_original[df_original['id'] == id_atual]
 
                     if not linha_original.empty:
-                        # Compara a linha da tela com a do banco (convertendo para facilitar a vida do Pandas)
+                        # Comparamos apenas as colunas relevantes para ver se mudou
                         if not row.equals(linha_original.iloc[0]):
                             params["id"] = id_atual
                             query_update = text("""
@@ -272,7 +281,8 @@ def salvar_edicoes_cirurgicas(df_editado, df_original, df_filtrado_antes_da_edic
                             conn.execute(query_update, params)
 
     st.cache_data.clear()
-    st.success("✅ Alterações salvas!")
+    st.success("✅ Alterações salvas com sucesso!")
+    # sleep(1)
     st.rerun()
 
 def tratar_planilha(uploaded_file):
@@ -361,7 +371,7 @@ def tratar_planilha(uploaded_file):
     cols_data = ['Data de Lançamento', 'Data de Corte']
     for col in cols_data:
         if col in df_clean.columns:
-            df_clean[col] = pd.to_datetime(df_clean[col], errors='coerce')
+            df_clean[col] = pd.to_datetime(df_clean[col], errors='coerce', dayfirst=True)
 
     return df_clean
 
@@ -505,10 +515,10 @@ if not df_base_original.empty:
     print(f'df_visualizacao:\n{df_visualizacao.columns}')
 
     df_visualizacao['Data de Lançamento'] = pd.to_datetime(
-        df_visualizacao['Data de Lançamento'], errors='coerce'
+        df_visualizacao['Data de Lançamento'], errors='coerce', dayfirst=True
     )
     df_visualizacao['Data de Corte'] = pd.to_datetime(
-        df_visualizacao['Data de Corte'], errors='coerce'
+        df_visualizacao['Data de Corte'], errors='coerce', dayfirst=True
     )
 
     df_alertas_corte = df_visualizacao.loc[
