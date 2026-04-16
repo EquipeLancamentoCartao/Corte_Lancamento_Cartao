@@ -122,64 +122,53 @@ def get_hora_brasilia():
     return datetime.now(fuso).strftime('%Y-%m-%d %H:%M:%S')
 
 def salvar_no_banco(df, nome_tabela='tabela_corte'):
-    st.write("🕵️‍♂️ Iniciando processo de salvamento...")
-    # 1. Inicializa a Engine
+    st.write("🕵️‍♂️ Iniciando atualização inteligente (Upsert)...")
     engine = init_db_engine()
-
-    # 2. Cria uma fábrica de sessões
     Session = sessionmaker(bind=engine)
     session = Session()
-    st.write("⚙️ Engine criada. Tentando enviar dados...")
 
     try:
-        # 1. Conferindo as credenciais (sem mostrar a senha)
-        user = st.secrets["mysql"]["user"]
-        host = st.secrets["mysql"]["host"]
-        port = st.secrets["mysql"]["port"]
-        database = st.secrets["mysql"]["database"]
-
-        st.write(f"📡 Tentando conectar em: {host} (Banco: {database})")
-
-        # 2. Montando a string
-        password = st.secrets["mysql"]["password"]
-        conexao_str = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{database}"
-
-        # 3. Criando Engine
-
-
-        # AQUI MUDOU TUDO:
-        # Abrimos uma conexão explícita gerenciada
-        # 3. Limpa a tabela atual
-        # O SQLAlchemy exige que comandos textuais sejam envolvidos em text()
-        session.execute(text("TRUNCATE TABLE tabela_corte;"))
-
-        # Horário de Brasília
+        # 1. Horário da alteração
         agora = get_hora_brasilia()
 
-        # 4. Remove duplicatas
+        # 2. Limpeza de duplicatas na planilha antes de subir
         df_limpo = df.drop_duplicates(subset=['Convênio'])
-
-        # --- A CORREÇÃO ESTÁ AQUI ---
-        # Transformamos o que é "vazio do Excel" em "vazio do Banco"
         df_limpo = df_limpo.where(pd.notnull(df_limpo), None)
-        # ----------------------------
 
-        # 5. Loop de Inserção
+        # 3. Query de UPSERT (Insere se novo, Atualiza se existir)
+        # O segredo está no "ON DUPLICATE KEY UPDATE"
+        query = text("""
+            INSERT INTO tabela_corte (
+                Convênio, Sistema, Responsavel, Validação, 
+                Referência, `Data de Corte`, `Data de Lançamento`, `Alterado em`
+            )
+            VALUES (:conv, :sis, :resp, :val, :ref, :dt_c, :dt_l, :alt)
+            ON DUPLICATE KEY UPDATE
+                Sistema = VALUES(Sistema),
+                Responsavel = VALUES(Responsavel),
+                Validação = VALUES(Validação),
+                Referência = VALUES(Referência),
+                `Data de Corte` = VALUES(`Data de Corte`),
+                `Data de Lançamento` = VALUES(`Data de Lançamento`),
+                `Alterado em` = IF(
+                    Sistema != VALUES(Sistema) OR 
+                    Responsavel != VALUES(Responsavel) OR 
+                    Validação != VALUES(Validação) OR
+                    Referência != VALUES(Referência) OR
+                    `Data de Corte` != VALUES(`Data de Corte`) OR
+                    `Data de Lançamento` != VALUES(`Data de Lançamento`),
+                    VALUES(`Alterado em`), 
+                    `Alterado em`
+                )
+        """)
+
+        def limpar_data(valor):
+            if pd.isna(valor) or str(valor) == 'NaT':
+                return None
+            return valor
+
+        # 4. Execução
         for _, row in df_limpo.iterrows():
-            query = text("""
-                        INSERT INTO tabela_corte (
-                            Convênio, Sistema, Responsavel, Validação, 
-                            Referência, `Data de Corte`, `Data de Lançamento`, `Alterado em`
-                        )
-                        VALUES (:conv, :sis, :resp, :val, :ref, :dt_c, :dt_l, :alt)
-                    """)
-
-            # Função auxiliar rápida para limpar NaT
-            def limpar_data(valor):
-                if pd.isna(valor) or str(valor) == 'NaT':
-                    return None
-                return valor
-
             session.execute(query, {
                 "conv": row.get('Convênio'),
                 "sis": row.get('Sistema'),
@@ -191,21 +180,16 @@ def salvar_no_banco(df, nome_tabela='tabela_corte'):
                 "alt": agora
             })
 
-        # 6. Salva as alterações definitivamente
         session.commit()
-
-        st.success(f"✅ Base atualizada com {len(df_limpo)} registros!")
+        st.success(f"✅ Sincronização concluída! {len(df_limpo)} convênios processados.")
         st.cache_data.clear()
         return True
 
     except Exception as e:
-        # Se der erro em qualquer parte, desfaz tudo (rollback)
         session.rollback()
-        st.error(f"❌ Erro ao salvar no banco: {e}")
+        st.error(f"❌ Erro na sincronização: {e}")
         return False
-
     finally:
-        # Fecha a sessão para liberar a conexão de volta para o Pool
         session.close()
 
 
