@@ -119,7 +119,7 @@ def carregar_dados_do_banco():
 
 def get_hora_brasilia():
     fuso = pytz.timezone('America/Sao_Paulo')
-    return datetime.now(fuso).strftime('%Y-%m-%d %H:%M:%S')
+    return datetime.now(fuso).strftime('%m-%d-%Y %H:%M:%S')
 
 def salvar_no_banco(df, nome_tabela='tabela_corte'):
     st.write("🕵️‍♂️ Iniciando atualização inteligente (Upsert)...")
@@ -530,14 +530,26 @@ if not df_base_original.empty:
                         )
 
                 if not df_alertas_fds.empty:
-                    st.warning("Convênios com Data de Lançamento em fim de semana")
+                    st.warning("⚠️ Convênios com Data de Lançamento em fim de semana")
+
+                    # Dicionário de tradução (muito mais rápido que vários ifs)
+                    dias_traduzidos = {
+                        "Monday": "Segunda-feira", "Tuesday": "Terça-feira",
+                        "Wednesday": "Quarta-feira", "Thursday": "Quinta-feira",
+                        "Friday": "Sexta-feira", "Saturday": "Sábado", "Sunday": "Domingo"
+                    }
+
+                    # Criamos uma lista de strings para mostrar tudo de uma vez
+                    linhas_alerta = []
                     for _, row in df_alertas_fds.iterrows():
-                        dia_semana = row['Data de Lançamento'].day_name()
-                        st.write(
-                            f"**{row['Convênio']}**: "
-                            f"{row['Data de Lançamento'].strftime('%d/%m/%Y')} "
-                            f"({dia_semana})"
-                        )
+                        nome_ingles = row['Data de Lançamento'].day_name()
+                        dia_pt = dias_traduzidos.get(nome_ingles, nome_ingles)
+                        data_fmt = row['Data de Lançamento'].strftime('%d/%m/%Y')
+
+                        linhas_alerta.append(f"* **{row['Convênio']}**: {data_fmt} ({dia_pt})")
+
+                    # Mostra tudo em um bloco só (melhor performance)
+                    st.markdown("\n".join(linhas_alerta))
         else:
             st.caption("🔔 Sem alertas")
 
@@ -674,10 +686,12 @@ if not df_base_original.empty:
             "id": None,
             "Data de Corte": st.column_config.DateColumn("Data de Corte", format="DD/MM/YYYY"),
             "Data de Lançamento": st.column_config.DateColumn("Data de Lançamento", format="DD/MM/YYYY"),
+            "Alterado em": st.column_config.DatetimeColumn("Última Alteração",format="DD/MM/YYYY HH:mm:ss")
         },
         use_container_width=True,
         num_rows="dynamic"
     )
+
     # 1. Criar um buffer na memória
     buffer = io.BytesIO()
 
