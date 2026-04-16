@@ -150,16 +150,7 @@ def salvar_no_banco(df, nome_tabela='tabela_corte'):
                 Referência = VALUES(Referência),
                 `Data de Corte` = VALUES(`Data de Corte`),
                 `Data de Lançamento` = VALUES(`Data de Lançamento`),
-                `Alterado em` = IF(
-                    Sistema != VALUES(Sistema) OR 
-                    Responsavel != VALUES(Responsavel) OR 
-                    Validação != VALUES(Validação) OR
-                    Referência != VALUES(Referência) OR
-                    `Data de Corte` != VALUES(`Data de Corte`) OR
-                    `Data de Lançamento` != VALUES(`Data de Lançamento`),
-                    VALUES(`Alterado em`), 
-                    `Alterado em`
-                )
+                `Alterado em` = VALUES(`Alterado em`) -- Atualiza sempre
         """)
 
         def limpar_data(valor):
