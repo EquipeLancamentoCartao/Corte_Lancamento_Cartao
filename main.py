@@ -119,7 +119,8 @@ def carregar_dados_do_banco():
 
 def get_hora_brasilia():
     fuso = pytz.timezone('America/Sao_Paulo')
-    return datetime.now(fuso).strftime('%m-%d-%Y %H:%M:%S')
+    # O segredo é começar pelo ANO (%Y)
+    return datetime.now(fuso).strftime('%Y-%m-%d %H:%M:%S')
 
 def salvar_no_banco(df, nome_tabela='tabela_corte'):
     st.write("🕵️‍♂️ Iniciando atualização inteligente (Upsert)...")
