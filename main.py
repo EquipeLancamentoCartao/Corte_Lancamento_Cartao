@@ -80,7 +80,8 @@ def carregar_dados_do_banco():
             12: 'DEZEMBRO'
         }
 
-        excecoes = ['PINDARÉ-MIRIM', 'ITAPECURU-MIRIM', 'BARBACENA']
+        excecoes = ['PINDARÉ-MIRIM', 'ITAPECURU-MIRIM']
+        excecoes_compt_anterior = ['BARBACENA']
 
         # cria colunas auxiliares
         df['Data de Corte'] = pd.to_datetime(df['Data de Corte'], errors='coerce', dayfirst=True)
@@ -97,6 +98,10 @@ def carregar_dados_do_banco():
         # exceções → sempre mês seguinte
         mask_excecoes = df['Convênio'].isin(excecoes)
         df.loc[mask_excecoes, 'mes_referencia'] = df.loc[mask_excecoes, 'mes_base'] + 1
+
+        # Exceções → sempre mês anterior
+        mask_excecoes_anterior = df['Convênio'].isin(excecoes_compt_anterior)
+        df.loc[mask_excecoes_anterior, 'mes_referencia'] = df.loc[mask_excecoes_anterior, 'mes_base'] - 1
 
         # ajustar novamente virada de ano para exceções
         df.loc[df['mes_referencia'] == 13, 'mes_referencia'] = 1
