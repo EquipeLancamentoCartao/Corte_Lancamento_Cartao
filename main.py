@@ -80,7 +80,7 @@ def carregar_dados_do_banco():
             12: 'DEZEMBRO'
         }
 
-        excecoes = ['PINDARÉ-MIRIM', 'ITAPECURU-MIRIM']
+        excecoes = ['PINDARÉ-MIRIM', 'ITAPECURU-MIRIM', 'BARBACENA']
 
         # cria colunas auxiliares
         df['Data de Corte'] = pd.to_datetime(df['Data de Corte'], errors='coerce', dayfirst=True)
