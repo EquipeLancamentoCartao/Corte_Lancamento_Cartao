@@ -92,6 +92,10 @@ def carregar_dados_do_banco():
         df['mes_referencia'] = df['mes_base']
         df.loc[df['dia'] >= 21, 'mes_referencia'] = df['mes_base'] + 1
 
+        # Exceções → sempre mês ATUAL
+        mask_excecoes_anterior = df['Convênio'].isin(excecoes_compt_anterior)
+        df.loc[mask_excecoes_anterior, 'mes_referencia'] = df.loc[mask_excecoes_anterior, 'mes_base'] - 1
+
         # ajuste dezembro → janeiro
         df.loc[df['mes_referencia'] == 13, 'mes_referencia'] = 1
 
@@ -99,9 +103,7 @@ def carregar_dados_do_banco():
         mask_excecoes = df['Convênio'].isin(excecoes)
         df.loc[mask_excecoes, 'mes_referencia'] = df.loc[mask_excecoes, 'mes_base'] + 1
 
-        # Exceções → sempre mês anterior
-        mask_excecoes_anterior = df['Convênio'].isin(excecoes_compt_anterior)
-        df.loc[mask_excecoes_anterior, 'mes_referencia'] = df.loc[mask_excecoes_anterior, 'mes_base'] - 1
+
 
         # ajustar novamente virada de ano para exceções
         df.loc[df['mes_referencia'] == 13, 'mes_referencia'] = 1
