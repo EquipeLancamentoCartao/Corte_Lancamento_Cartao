@@ -6,4 +6,4 @@ mysql-connector-python
 sqlalchemy
 pytz
 dotenv
-psycopg2
+psycopg2-binary
