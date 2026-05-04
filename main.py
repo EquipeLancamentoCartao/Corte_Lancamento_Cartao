@@ -5,6 +5,7 @@ import sqlite3
 from sqlalchemy import create_engine
 from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
 import io
 import mysql.connector
 import openpyxl
@@ -14,26 +15,19 @@ from time import sleep
 # Configuração da página para ocupar mais espaço na tela
 st.set_page_config(page_title="Datas de Corte e Lançamento", layout="wide")
 
+# Load environment variables from .env
+load_dotenv()
+
 
 def init_db_engine():
-    # Pega os dados
-    user = st.secrets["mysql"]["user"]
-    password = st.secrets["mysql"]["password"]
-    host = st.secrets["mysql"]["host"]
-    port = st.secrets["mysql"]["port"]
-    database = st.secrets["mysql"]["database"]
+    # Certifique-se que o nome no segredo é [postgres] ou [supabase]
+    db_config = st.secrets["supabase"]
 
-    # Cria a Engine com Pool de conexões
-    # pool_size=5: Mantém 5 conexões abertas prontas pra uso
-    # max_overflow=10: Pode abrir mais 10 se tiver muito tráfego
-    return create_engine(
-        f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{database}",
-        pool_size=5,
-        max_overflow=10,
-        pool_pre_ping=True,  # Evita erro de conexão perdida
-        pool_recycle=3600
+    conn_str = (
+        f"postgresql+psycopg2://{db_config['user']}:{db_config['password']}"
+        f"@{db_config['host']}:{db_config['port']}/{db_config['database']}"
     )
-
+    return create_engine(conn_str)
 
 # Atualize a função de leitura para usar a Engine
 @st.cache_data(ttl=120)
@@ -147,18 +141,28 @@ def salvar_no_banco(df, nome_tabela='tabela_corte'):
         # O segredo está no "ON DUPLICATE KEY UPDATE"
         query = text("""
             INSERT INTO tabela_corte (
-                Convênio, Sistema, Responsavel, Validação, 
-                Referência, `Data de Corte`, `Data de Lançamento`, `Alterado em`
+                "Convênio", "Sistema", "Responsavel", "Validação", 
+                "Referência", "Data de Corte", "Data de Lançamento", "Alterado em"
             )
             VALUES (:conv, :sis, :resp, :val, :ref, :dt_c, :dt_l, :alt)
-            ON DUPLICATE KEY UPDATE
-                Sistema = VALUES(Sistema),
-                Responsavel = VALUES(Responsavel),
-                Validação = VALUES(Validação),
-                Referência = VALUES(Referência),
-                `Data de Corte` = VALUES(`Data de Corte`),
-                `Data de Lançamento` = VALUES(`Data de Lançamento`),
-                `Alterado em` = VALUES(`Alterado em`) -- Atualiza sempre
+            ON CONFLICT ("Convênio") 
+            DO UPDATE SET
+                "Sistema" = EXCLUDED."Sistema",
+                "Responsavel" = EXCLUDED."Responsavel",
+                "Validação" = EXCLUDED."Validação",
+                "Referência" = EXCLUDED."Referência",
+                "Data de Corte" = EXCLUDED."Data de Corte",
+                "Data de Lançamento" = EXCLUDED."Data de Lançamento",
+                "Alterado em" = CASE 
+                    WHEN (tabela_corte."Sistema" IS DISTINCT FROM EXCLUDED."Sistema" OR
+                          tabela_corte."Responsavel" IS DISTINCT FROM EXCLUDED."Responsavel" OR
+                          tabela_corte."Validação" IS DISTINCT FROM EXCLUDED."Validação" OR
+                          tabela_corte."Referência" IS DISTINCT FROM EXCLUDED."Referência" OR
+                          tabela_corte."Data de Corte" IS DISTINCT FROM EXCLUDED."Data de Corte" OR
+                          tabela_corte."Data de Lançamento" IS DISTINCT FROM EXCLUDED."Data de Lançamento")
+                    THEN EXCLUDED."Alterado em"
+                    ELSE tabela_corte."Alterado em"
+                END;
         """)
 
         def limpar_data(valor):
