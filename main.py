@@ -22,14 +22,19 @@ load_dotenv()
 def init_db_engine():
     db_config = st.secrets["supabase"]
 
-    # Usamos o driver psycopg2
     conn_str = (
         f"postgresql+psycopg2://{db_config['user']}:{db_config['password']}"
         f"@{db_config['host']}:{db_config['port']}/{db_config['database']}"
     )
 
-    # O connect_args ajuda a evitar problemas de timeout na nuvem
-    return create_engine(conn_str, connect_args={"connect_timeout": 10})
+    # gssencmode=disable evita um handshake extra que costuma dar erro em conexões cloud
+    return create_engine(
+        conn_str,
+        connect_args={
+            "connect_timeout": 10,
+            "gssencmode": "disable"
+        }
+    )
 
 # Atualize a função de leitura para usar a Engine
 @st.cache_data(ttl=120)
