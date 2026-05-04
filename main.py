@@ -11,6 +11,7 @@ import mysql.connector
 import openpyxl
 import pytz
 from time import sleep
+import urllib.parse
 
 # Configuração da página para ocupar mais espaço na tela
 st.set_page_config(page_title="Datas de Corte e Lançamento", layout="wide")
@@ -18,23 +19,23 @@ st.set_page_config(page_title="Datas de Corte e Lançamento", layout="wide")
 # Load environment variables from .env
 load_dotenv()
 
+import streamlit as st
+from sqlalchemy import create_engine
+import urllib.parse
+
 
 def init_db_engine():
-    db_config = st.secrets["supabase"]
+    try:
+        db = st.secrets["supabase"]
+        # O quote_plus garante que mesmo que a senha tenha algo estranho, ela seja lida
+        password = urllib.parse.quote_plus(db['password'])
 
-    conn_str = (
-        f"postgresql+psycopg2://{db_config['user']}:{db_config['password']}"
-        f"@{db_config['host']}:{db_config['port']}/{db_config['database']}"
-    )
+        conn_str = f"postgresql+psycopg2://{db['user']}:{password}@{db['host']}:{db['port']}/{db['database']}"
 
-    # gssencmode=disable evita um handshake extra que costuma dar erro em conexões cloud
-    return create_engine(
-        conn_str,
-        connect_args={
-            "connect_timeout": 10,
-            "gssencmode": "disable"
-        }
-    )
+        return create_engine(conn_str)
+    except Exception as e:
+        st.error(f"Erro na configuração dos segredos: {e}")
+        return None
 
 # Atualize a função de leitura para usar a Engine
 @st.cache_data(ttl=120)
