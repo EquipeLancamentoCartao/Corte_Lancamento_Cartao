@@ -5,3 +5,4 @@ xlsxwriter
 mysql-connector-python
 sqlalchemy
 pytz
+dotenv
