@@ -517,10 +517,16 @@ if not df_base_original.empty:
         ].copy()
 
     # ALERTA 3: lançamento muito distante da data atual
+    # Defina aqui o limite de dias aceitável (ex: 90 dias para o passado ou futuro)
+    LIMITE_DIAS = 30
+
+    # 2. Calcula a diferença em dias (com sinal absoluto para pegar tanto no passado quanto no futuro)
+    diferenca_dias = (df_visualizacao['Data de Lançamento'] - datetime.now()).dt.days.abs()
+
+    # ALERTA 3: lançamento muito distante da data atual
     df_alertas_distancia_lancamento = df_visualizacao.loc[
-        df_visualizacao['Data de Lançamento'].notna()
-        & (df_visualizacao['Data de Lançamento'] - datetime.now()).dt.days.abs() > 30
-    ].notna()
+        df_visualizacao['Data de Lançamento'].notna() & (diferenca_dias > LIMITE_DIAS)
+        ]
 
     total_alertas = len(df_alertas_corte) + len(df_alertas_fds) + len(df_alertas_distancia_lancamento)
 
