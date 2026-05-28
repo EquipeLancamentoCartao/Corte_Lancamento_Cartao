@@ -528,7 +528,19 @@ if not df_base_original.empty:
         df_visualizacao['Data de Lançamento'].notna() & (diferenca_dias > LIMITE_DIAS)
         ]
 
-    total_alertas = len(df_alertas_corte) + len(df_alertas_fds) + len(df_alertas_distancia_lancamento)
+    # ALERTA 4: corte muito distante da data atual
+    # Defina aqui o limite de dias aceitável (ex: 90 dias para o passado ou futuro)
+    LIMITE_DIAS_CORTE = 30
+
+    # 2. Calcula a diferença em dias (com sinal absoluto para pegar tanto no passado quanto no futuro)
+    diferenca_dias_corte = (df_visualizacao['Data de Corte'] - datetime.now()).dt.days.abs()
+
+    # ALERTA 3: lançamento muito distante da data atual
+    df_alertas_distancia_corte = df_visualizacao.loc[
+        df_visualizacao['Data de Corte'].notna() & (diferenca_dias > LIMITE_DIAS_CORTE)
+        ]
+
+    total_alertas = len(df_alertas_corte) + len(df_alertas_fds) + len(df_alertas_distancia_lancamento) + len(df_alertas_distancia_corte)
 
     col_esq, col_dir = st.columns([8, 2])
 
@@ -576,10 +588,20 @@ if not df_base_original.empty:
                     # Criamos uma lista de strings para mostrar tudo de uma vez
                     linhas_alerta_distancia = []
                     for _, row in df_alertas_fds.iterrows():
-                        linhas_alerta_distancia.append(f"* **{row['Convênio']}**: {row['Data de Lançamento']}")
+                        linhas_alerta_distancia.append(f"* **{row['Convênio']}**: {row['Data de Lançamento'].strftime('%d/%m/%Y')}")
 
                     # Mostra tudo em um bloco só (melhor performance)
                     st.markdown("\n".join(linhas_alerta_distancia))
+
+                if not df_alertas_distancia_corte.empty:
+                    st.warning("⚠️ Convênios com Data de Corte com mais de 30 dias de distância")
+                    # Criamos uma lista de strings para mostrar tudo de uma vez
+                    linhas_alerta_distancia_corte = []
+                    for _, row in df_alertas_fds.iterrows():
+                        linhas_alerta_distancia_corte.append(f"* **{row['Convênio']}**: {row['Data de Corte'].strftime('%d/%m/%Y')}")
+
+                    # Mostra tudo em um bloco só (melhor performance)
+                    st.markdown("\n".join(linhas_alerta_distancia_corte))
 
         else:
             st.caption("🔔 Sem alertas")
