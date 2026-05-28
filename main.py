@@ -516,7 +516,13 @@ if not df_base_original.empty:
         & (df_visualizacao['Data de Lançamento'].dt.dayofweek >= 5)
         ].copy()
 
-    total_alertas = len(df_alertas_corte) + len(df_alertas_fds)
+    # ALERTA 3: lançamento muito distante da data atual
+    df_alertas_distancia_lancamento = df_visualizacao.loc[
+        df_visualizacao['Data de Lançamento'].notna()
+        & (df_visualizacao['Data de Lançamento'] - datetime.now()).dt.days.abs() > 30
+    ].notna()
+
+    total_alertas = len(df_alertas_corte) + len(df_alertas_fds) + len(df_alertas_distancia_lancamento)
 
     col_esq, col_dir = st.columns([8, 2])
 
@@ -558,6 +564,17 @@ if not df_base_original.empty:
 
                     # Mostra tudo em um bloco só (melhor performance)
                     st.markdown("\n".join(linhas_alerta))
+
+                if not df_alertas_distancia_lancamento.empty:
+                    st.warning("⚠️ Convênios com Data de Lançamento com mais de 30 dias de distância")
+                    # Criamos uma lista de strings para mostrar tudo de uma vez
+                    linhas_alerta = []
+                    for _, row in df_alertas_fds.iterrows():
+                        linhas_alerta.append(f"* **{row['Convênio']}**: {row['Data de Lançamento']}")
+
+                    # Mostra tudo em um bloco só (melhor performance)
+                    st.markdown("\n".join(linhas_alerta))
+
         else:
             st.caption("🔔 Sem alertas")
 
