@@ -535,9 +535,8 @@ if not df_base_original.empty:
     # 2. Calcula a diferença em dias (com sinal absoluto para pegar tanto no passado quanto no futuro)
     diferenca_dias_corte = (df_visualizacao['Data de Corte'] - datetime.now()).dt.days.abs()
 
-    # ALERTA 3: lançamento muito distante da data atual
     df_alertas_distancia_corte = df_visualizacao.loc[
-        df_visualizacao['Data de Corte'].notna() & (diferenca_dias > LIMITE_DIAS_CORTE)
+        df_visualizacao['Data de Corte'].notna() & (diferenca_dias_corte > LIMITE_DIAS_CORTE)
         ]
 
     total_alertas = len(df_alertas_corte) + len(df_alertas_fds) + len(df_alertas_distancia_lancamento) + len(df_alertas_distancia_corte)
@@ -587,7 +586,7 @@ if not df_base_original.empty:
                     st.warning("⚠️ Convênios com Data de Lançamento com mais de 30 dias de distância")
                     # Criamos uma lista de strings para mostrar tudo de uma vez
                     linhas_alerta_distancia = []
-                    for _, row in df_alertas_fds.iterrows():
+                    for _, row in df_alertas_distancia_lancamento.iterrows():
                         linhas_alerta_distancia.append(f"* **{row['Convênio']}**: {row['Data de Lançamento'].strftime('%d/%m/%Y')}")
 
                     # Mostra tudo em um bloco só (melhor performance)
@@ -597,7 +596,7 @@ if not df_base_original.empty:
                     st.warning("⚠️ Convênios com Data de Corte com mais de 30 dias de distância")
                     # Criamos uma lista de strings para mostrar tudo de uma vez
                     linhas_alerta_distancia_corte = []
-                    for _, row in df_alertas_fds.iterrows():
+                    for _, row in df_alertas_distancia_corte.iterrows():
                         linhas_alerta_distancia_corte.append(f"* **{row['Convênio']}**: {row['Data de Corte'].strftime('%d/%m/%Y')}")
 
                     # Mostra tudo em um bloco só (melhor performance)
