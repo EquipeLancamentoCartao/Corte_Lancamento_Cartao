@@ -568,12 +568,12 @@ if not df_base_original.empty:
                 if not df_alertas_distancia_lancamento.empty:
                     st.warning("⚠️ Convênios com Data de Lançamento com mais de 30 dias de distância")
                     # Criamos uma lista de strings para mostrar tudo de uma vez
-                    linhas_alerta = []
+                    linhas_alerta_distancia = []
                     for _, row in df_alertas_fds.iterrows():
-                        linhas_alerta.append(f"* **{row['Convênio']}**: {row['Data de Lançamento']}")
+                        linhas_alerta_distancia.append(f"* **{row['Convênio']}**: {row['Data de Lançamento']}")
 
                     # Mostra tudo em um bloco só (melhor performance)
-                    st.markdown("\n".join(linhas_alerta))
+                    st.markdown("\n".join(linhas_alerta_distancia))
 
         else:
             st.caption("🔔 Sem alertas")
