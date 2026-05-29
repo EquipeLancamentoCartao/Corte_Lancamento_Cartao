@@ -476,13 +476,29 @@ with st.sidebar:
     # O botão chama a função ANTES de rodar o app de novo
     st.button("Limpar Filtros", on_click=limpar_tudo)
 
-# --- ÁREA PRINCIPAL ---
-st.subheader("Visualização da Base de Dados")
-
 # 1. Carrega do Banco
 df_base_original = carregar_dados_do_banco()
 
+# --- ÁREA PRINCIPAL ---
+if not df_base_original.empty:
 
+    # 1. Garante que o Pandas entende a coluna como Data Real (e não texto)
+    # Se já for data, ele só ignora e mantém.
+    df_base_original['Alterado em'] = pd.to_datetime(df_base_original['Alterado em'], errors='coerce')
+
+    # 2. Pega a data mais recente (agora sim, de forma 100% segura)
+    atualizacao_recente = df_base_original['Alterado em'].max()
+
+    # 3. Formata para o subtítulo ficar bonito
+    # Verifica se a data existe (pd.notna) para evitar erro caso a coluna esteja vazia
+    if pd.notna(atualizacao_recente):
+        data_formatada = atualizacao_recente.strftime('%d/%m/%Y %H:%M:%S')
+    else:
+        data_formatada = "Data desconhecida"
+
+    st.subheader(f"Visualização da Base de Dados - Atualizado em: {data_formatada}")
+else:
+    st.subheader(f"Visualização da Base de Dados")
 
 if not df_base_original.empty:
 
