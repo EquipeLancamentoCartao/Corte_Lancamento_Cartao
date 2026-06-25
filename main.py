@@ -486,6 +486,11 @@ if not df_base_original.empty:
     # Se já for data, ele só ignora e mantém.
     df_base_original['Alterado em'] = pd.to_datetime(df_base_original['Alterado em'], errors='coerce')
 
+    # ---> ADICIONE ESTA LINHA AQUI <---
+    # Ordena da modificação mais recente para a mais antiga.
+    # na_position='last' garante que linhas sem data de alteração fiquem no fim da tabela.
+    df_base_original = df_base_original.sort_values(by='Alterado em', ascending=False, na_position='last')
+
     # 2. Pega a data mais recente (agora sim, de forma 100% segura)
     atualizacao_recente = df_base_original['Alterado em'].max()
 
