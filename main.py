@@ -265,7 +265,7 @@ def salvar_edicoes_cirurgicas(df_editado, df_original, df_filtrado_antes_da_edic
 
     st.cache_data.clear()
     st.success("✅ Alterações salvas com sucesso!")
-    # sleep(1)
+    sleep(2)
     st.rerun()
 
 def tratar_planilha(uploaded_file):
@@ -788,7 +788,6 @@ if not df_base_original.empty:
         # Chamamos a função passando o que está na tela (editado)
         # e o que veio do banco (original) para comparação
         salvar_edicoes_cirurgicas(df_editado, df_base_original, df_antes_de_editar)
-        st.success("Alterações salvas com sucesso!")
 
 else:
     st.info("O banco de dados está vazio. Use a barra lateral para fazer o primeiro upload.")
