@@ -546,7 +546,7 @@ if not df_base_original.empty:
 
     # ALERTA 3: lançamento muito distante da data atual
     df_alertas_distancia_lancamento = df_visualizacao.loc[
-        df_visualizacao['Data de Lançamento'].notna() & (diferenca_dias > LIMITE_DIAS) & (~df_visualizacao['Data de Lançamento'].isin(["NÃO LANÇA", "Não lança"]))
+        df_visualizacao['Data de Lançamento'].notna() & (diferenca_dias > LIMITE_DIAS) & (~df_visualizacao['Responsavel'].isin(["NÃO LANÇA", "Não lança"]))
         ]
 
     # ALERTA 4: corte muito distante da data atual
@@ -557,7 +557,7 @@ if not df_base_original.empty:
     diferenca_dias_corte = (df_visualizacao['Data de Corte'] - datetime.now()).dt.days.abs()
 
     df_alertas_distancia_corte = df_visualizacao.loc[
-        df_visualizacao['Data de Corte'].notna() & (diferenca_dias_corte > LIMITE_DIAS_CORTE) & (~df_visualizacao['Data de Corte'].isin(["NÃO LANÇA", "Não lança"]))
+        df_visualizacao['Data de Corte'].notna() & (diferenca_dias_corte > LIMITE_DIAS_CORTE) & (~df_visualizacao['Responsavel'].isin(["NÃO LANÇA", "Não lança"]))
         ]
 
     total_alertas = len(df_alertas_corte) + len(df_alertas_fds) + len(df_alertas_distancia_lancamento) + len(df_alertas_distancia_corte)
